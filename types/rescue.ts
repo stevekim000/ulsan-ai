@@ -73,6 +73,7 @@ export interface AIEstimateResult {
   internetSearchQueries?: string[];   // 인터넷 정보 수집에 사용된 검색 쿼리 목록
   internetFindings?: string;          // 인터넷에서 수집된 정보 및 위치 연계 분석 내용 요약
   collectedWebSources?: Array<{ title: string; snippet: string; url?: string }>; // 수집된 웹 출처 및 내용
+  coreSourceLinks?: Array<{ title: string; url: string; snippet?: string }>;     // 핵심 데이터를 수집한 1~2개 출처 링크
   isGeminiPowered?: boolean;
   modelUsed?: string;
 }

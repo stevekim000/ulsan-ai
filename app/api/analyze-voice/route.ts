@@ -5,12 +5,14 @@ import {
   HALLASAN_SIGNS,
   LANDMARK_SYNONYMS,
   HALLASAN_LANDMARKS,
+  TrailName,
 } from "@/lib/mountainData";
 import { analyzeVoiceEnvironment } from "@/lib/aiLocationEngine";
 import {
   detectMountainKeywords,
   extractSearchQueriesFromVoice,
   collectInternetInformation,
+  getCoreSourceLinksForCourse,
   WebSearchResultItem,
 } from "@/lib/internetSearch";
 import { AIEstimateResult } from "@/types/rescue";
@@ -145,7 +147,8 @@ ${trailData}
 1. 인터넷 수집 결과 및 Google Search 지식을 바탕으로 학생이 서술한 시각적 단서(예: 붉은 지붕 건물, 기상 레이더 돔, 철탑, 모노레일 등)와 가장 일치하는 5대 코스 시설물/지형을 특정하세요.
 2. 'internetFindings' 필드에 5개 코스 중 어떤 코스의 어떤 웹 문서 및 인터넷 정보를 수집·대조하여 이 위치로 추정했는지 구체적인 근거를 2~3문장으로 명확히 서술하세요.
 3. 명시적 표지목이 없는 인터넷 기반 추정이므로 수색 반경(radiusMeters)은 안전을 고려해 50~80m 범위로, 신뢰도(confidence)는 75~85% 사이로 현실적으로 산출하세요.
-4. 반드시 유효한 JSON 형식으로만 응답하세요.
+4. 'coreSourceLinks' 필드에 위치 추정에 결정적인 핵심 데이터를 수집한 실제 웹사이트 링크 1~2개(title과 url)를 반드시 포함하세요.
+5. 반드시 유효한 JSON 형식으로만 응답하세요.
 
 응답 형식 (JSON):
 {
@@ -162,6 +165,13 @@ ${trailData}
   "isInternetSearchUsed": true,
   "internetSearchQueries": ${JSON.stringify(searchQueries)},
   "internetFindings": "인터넷 정보 수집 및 위치 분석 요약 2~3문장",
+  "coreSourceLinks": [
+    {
+      "title": "핵심 데이터 수집 출처 명칭 (예: 제주도청 한라산국립공원 성판악 코스 안내)",
+      "url": "https://www.jeju.go.kr/hallasan/info/info/trail/seongpanak.htm",
+      "snippet": "수집된 시설물/지형 핵심 요약"
+    }
+  ],
   "terrainAnalysis": {
     "terrainType": "인터넷 정보로 파악된 지형 특성 (예: 고산 기상 관측 타워 능선 지대)",
     "weatherCondition": "기상/시야 상태",
@@ -274,6 +284,17 @@ ${trailData}
           }
         }
 
+        const matchedTrailName: TrailName =
+          (parsed.matchedTrail as TrailName) ||
+          (matchedPOI.description?.includes("영실") ? "영실" :
+           matchedPOI.description?.includes("관음사") ? "관음사" :
+           matchedPOI.description?.includes("어리목") ? "어리목" :
+           matchedPOI.description?.includes("돈내코") ? "돈내코" : "성판악");
+
+        const coreLinks = (parsed.coreSourceLinks && Array.isArray(parsed.coreSourceLinks) && parsed.coreSourceLinks.length > 0)
+          ? parsed.coreSourceLinks.slice(0, 2)
+          : getCoreSourceLinksForCourse(matchedTrailName, webResults);
+
         const estimateResult: AIEstimateResult = {
           analyzedText: voiceTranscript,
           extractedLandmarks: parsed.extractedLandmarks || [],
@@ -323,6 +344,7 @@ ${trailData}
           internetSearchQueries: isInternetSearchNeeded ? searchQueries : undefined,
           internetFindings: isInternetSearchNeeded ? (parsed.internetFindings || "인터넷 정보 수집을 통해 학생이 언급한 시각적 묘사와 일치하는 한라산 시설물/지형을 대조 분석했습니다.") : undefined,
           collectedWebSources: isInternetSearchNeeded ? webResults : undefined,
+          coreSourceLinks: isInternetSearchNeeded ? coreLinks : undefined,
           isGeminiPowered: true,
           modelUsed: isInternetSearchNeeded ? "Google Gemini 1.5 Flash + 인터넷 실시간 수집" : "Google Gemini 1.5 Flash",
         };
@@ -336,6 +358,12 @@ ${trailData}
 
     // 2. Fallback: 오프라인/온디바이스 자연어 처리 엔진 (테스트 모드: GPS 고도 미사용, 순수 음성 단서 분석)
     const localResult = analyzeVoiceEnvironment(voiceTranscript);
+    const localTrailName = (localResult.matchedPOI?.description?.includes("영실") ? "영실" :
+      localResult.matchedPOI?.description?.includes("관음사") ? "관음사" :
+      localResult.matchedPOI?.description?.includes("어리목") ? "어리목" :
+      localResult.matchedPOI?.description?.includes("돈내코") ? "돈내코" : "성판악") as TrailName;
+    const localCoreLinks = isInternetSearchNeeded ? getCoreSourceLinksForCourse(localTrailName, webResults) : undefined;
+
     return NextResponse.json({
       ...localResult,
       isInternetSearchUsed: isInternetSearchNeeded,
@@ -344,6 +372,7 @@ ${trailData}
         ? `인터넷 지형 정보 수집 결과, 학생이 묘사한 시각적 단서('${searchQueries.join(', ')}')는 한라산 ${localResult.matchedPOI?.description || '해당 구간'} 일대 시설물 및 지형 환경과 일치함을 확인했습니다.`
         : undefined,
       collectedWebSources: isInternetSearchNeeded ? webResults : undefined,
+      coreSourceLinks: localCoreLinks,
       isGeminiPowered: false,
       modelUsed: isInternetSearchNeeded
         ? "온디바이스 로컬 AI (인터넷 실시간 정보 수집 모드)"

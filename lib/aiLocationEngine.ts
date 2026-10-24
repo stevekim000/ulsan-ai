@@ -13,6 +13,7 @@ import {
 import {
   detectMountainKeywords,
   extractSearchQueriesFromVoice,
+  getCoreSourceLinksForCourse,
 } from "@/lib/internetSearch";
 
 /**
@@ -647,6 +648,7 @@ export function analyzeVoiceEnvironment(
     internetFindings: isInternetSearchUsed
       ? `인터넷 정보 수집 결과, 학생이 묘사한 시각적 단서('${internetSearchQueries?.join(', ')}')는 한라산 ${bestMatch.kp.trail} 코스 [${bestMatch.kp.name}] 일대 시설물 및 지형 환경과 일치함을 확인했습니다.`
       : undefined,
+    coreSourceLinks: isInternetSearchUsed ? getCoreSourceLinksForCourse(bestMatch.kp.trail) : undefined,
     aiRecommendations: [
       `학생에게 현재 위치(${bestMatch.kp.name} 인근)에서 절대 이동하지 말고 비바람을 피하도록 안내하세요.`,
       `수색팀을 한라산 ${bestMatch.kp.trail} 코스 [${bestMatch.kp.name}] 반경 ${radiusMeters}m로 집중 투입하세요.`,

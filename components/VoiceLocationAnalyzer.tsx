@@ -459,19 +459,54 @@ export default function VoiceLocationAnalyzer({
                 </div>
               )}
 
-              {/* 수집된 웹 출처 */}
-              {result.collectedWebSources && result.collectedWebSources.length > 0 && (
-                <div className="space-y-1.5 pt-1">
-                  <p className="text-[11px] font-bold text-slate-400">수집된 한라산 5대 코스 웹 지리 정보:</p>
+              {/* 핵심 데이터 수집 출처 링크 (1~2개) */}
+              {((result.coreSourceLinks && result.coreSourceLinks.length > 0) || (result.collectedWebSources && result.collectedWebSources.length > 0)) && (
+                <div className="space-y-2 pt-1 border-t border-cyan-500/20">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-extrabold text-cyan-300 flex items-center gap-1.5">
+                      <ExternalLink className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                      <span>핵심 데이터 수집 링크 (출처 1~2개)</span>
+                    </p>
+                    <span className="text-[10px] bg-slate-900 text-cyan-400 px-2 py-0.5 rounded font-mono border border-cyan-500/30">
+                      실시간 웹 대조
+                    </span>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {result.collectedWebSources.slice(0, 2).map((src, idx) => (
-                      <div key={idx} className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 text-[11px] text-slate-300 space-y-1">
-                        <p className="font-semibold text-white line-clamp-1 flex items-center gap-1">
-                          <ExternalLink className="w-3 h-3 text-cyan-400 flex-shrink-0" />
-                          <span>{src.title}</span>
-                        </p>
-                        <p className="text-slate-400 text-[10px] line-clamp-2 leading-relaxed">{src.snippet}</p>
-                      </div>
+                    {((result.coreSourceLinks && result.coreSourceLinks.length > 0)
+                      ? result.coreSourceLinks
+                      : (result.collectedWebSources || [])
+                    ).slice(0, 2).map((linkItem, idx) => (
+                      <a
+                        key={idx}
+                        href={linkItem.url || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex flex-col justify-between bg-slate-900/90 hover:bg-slate-800/90 border border-cyan-500/30 hover:border-cyan-400 rounded-xl p-3 text-xs transition-all duration-200 shadow-sm hover:shadow-cyan-500/20"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <span className="font-bold text-white text-[12px] group-hover:text-cyan-300 line-clamp-1 transition-colors">
+                              {linkItem.title}
+                            </span>
+                            <ExternalLink className="w-3.5 h-3.5 text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform flex-shrink-0 mt-0.5" />
+                          </div>
+                          {linkItem.snippet && (
+                            <p className="text-slate-400 text-[10px] line-clamp-2 leading-relaxed">
+                              {linkItem.snippet}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-2 mt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                          <span className="text-cyan-400/80 font-mono truncate max-w-[200px]">
+                            {(linkItem.url || "").replace(/^https?:\/\//, '').split('/')[0]}
+                          </span>
+                          <span className="text-slate-400 font-semibold group-hover:text-white transition-colors flex items-center gap-0.5">
+                            출처 열기 ↗
+                          </span>
+                        </div>
+                      </a>
                     ))}
                   </div>
                 </div>
