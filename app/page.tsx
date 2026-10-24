@@ -10,7 +10,7 @@ import {
 import StudentSosView from "@/components/StudentSosView";
 import TeacherCommandView from "@/components/TeacherCommandView";
 import NotificationToast, { ToastNotification } from "@/components/NotificationToast";
-import { Student, RescueTimelineEvent, AIEstimateResult, NetworkStatus } from "@/types/rescue";
+import { Student, RescueTimelineEvent, AIEstimateResult } from "@/types/rescue";
 import { getStoredStudents, getStoredTimeline, saveStudents } from "@/lib/storage";
 import { DEFAULT_HIKING_TRAIL } from "@/lib/mountainData";
 
@@ -19,7 +19,6 @@ export default function HomePage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [timeline, setTimeline] = useState<RescueTimelineEvent[]>([]);
   const [aiEstimate, setAiEstimate] = useState<AIEstimateResult | null>(null);
-  const [networkStatus, setNetworkStatus] = useState<NetworkStatus>("unstable");
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
   // 알림 토스트 상태
@@ -162,8 +161,6 @@ export default function HomePage() {
         {activeTab === "student" && (
           <StudentSosView
             onAiAnalysisDone={handleAiAnalysisDone}
-            networkStatus={networkStatus}
-            setNetworkStatus={setNetworkStatus}
           />
         )}
 
