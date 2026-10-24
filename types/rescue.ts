@@ -38,6 +38,19 @@ export interface Student {
   updatedAt: number;
 }
 
+export interface InferenceStep {
+  icon: string;
+  title: string;
+  desc: string;
+}
+
+export interface TerrainAnalysis {
+  terrainType: string;       // 지형 유형 (예: "기암괴석 암벽 지대", "아고산대 구상나무 침엽수림")
+  weatherCondition?: string; // 기상/시야 (예: "짙은 안개로 시야 15m 미만", "강풍/돌풍")
+  riskFactor?: string;       // 위험 요소 (예: "급경사 낙상 위험", "저체온증 취약", "발목 부상")
+  trailCourse?: string;      // 코스 정보 (예: "영실 코스 상행 3.7km 지점")
+}
+
 export interface AIEstimateResult {
   analyzedText: string;
   extractedLandmarks: string[];
@@ -50,6 +63,9 @@ export interface AIEstimateResult {
   urgencyLevel: 'high' | 'critical' | 'moderate';
   aiRecommendations: string[];
   timelineExplanation: string;
+  matchedReason?: string;             // 핵심 판정 이유
+  reasoningSteps?: InferenceStep[];   // 어째서 그런 결과를 낸건지 단계별 추론 이유
+  terrainAnalysis?: TerrainAnalysis;  // 정밀 지형 분석 결과
   isGeminiPowered?: boolean;
   modelUsed?: string;
 }

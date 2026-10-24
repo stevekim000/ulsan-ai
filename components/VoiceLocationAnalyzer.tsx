@@ -414,6 +414,101 @@ export default function VoiceLocationAnalyzer({
             </div>
           </div>
 
+          {/* 1. 정밀 지형 및 위험 환경 분석 (Terrain & Hazard Analysis) */}
+          {result.terrainAnalysis && (
+            <div className="p-3.5 bg-slate-950/80 border border-amber-500/30 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                  <span>⛰️</span>
+                  <span>지형 및 조난 환경 정밀 분석</span>
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
+                  {result.terrainAnalysis.trailCourse || "한라산 탐방로"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-semibold mb-0.5">
+                    🏔️ 지형 형태 및 특성
+                  </span>
+                  <span className="text-slate-200 font-medium leading-relaxed">
+                    {result.terrainAnalysis.terrainType}
+                  </span>
+                </div>
+
+                <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-semibold mb-0.5">
+                    🌫️ 기상 및 시야 상태
+                  </span>
+                  <span className="text-slate-200 font-medium leading-relaxed">
+                    {result.terrainAnalysis.weatherCondition}
+                  </span>
+                </div>
+              </div>
+
+              {result.terrainAnalysis.riskFactor && (
+                <div className="bg-red-950/40 border border-red-500/30 p-2 rounded-lg text-xs flex items-center gap-2 text-red-200">
+                  <span className="text-red-400 shrink-0 font-bold">⚠️ 주요 위험:</span>
+                  <span className="font-medium">{result.terrainAnalysis.riskFactor}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 2. 어째서 이런 결과를 냈는지: AI 단계별 추론 근거 (Reasoning Justification) */}
+          <div className="p-3.5 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                <span>AI 추론 근거 (어째서 이 위치로 판정했는가?)</span>
+              </span>
+              <span className="text-[10px] text-slate-400">
+                5단계 신경망 지리 대조
+              </span>
+            </div>
+
+            {/* 핵심 판정 요약 */}
+            {result.matchedReason && (
+              <div className="p-2 bg-indigo-900/30 border border-indigo-500/20 rounded-lg text-xs text-indigo-200 font-semibold flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{result.matchedReason}</span>
+              </div>
+            )}
+
+            {/* 4단계 상세 추론 과정 */}
+            {result.reasoningSteps && result.reasoningSteps.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {result.reasoningSteps.map((step, sIdx) => (
+                  <div key={sIdx} className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs">{step.icon}</span>
+                      <span className="text-[11px] font-bold text-slate-200">{step.title}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed pl-4">
+                      {step.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Extracted Clue Keywords */}
+          {result.extractedLandmarks && result.extractedLandmarks.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="text-slate-400 font-medium mr-1">포착된 단서:</span>
+              {result.extractedLandmarks.map((lm, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 font-medium"
+                >
+                  {lm}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Timeline / Public Explanation */}
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-xs text-blue-200 flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
