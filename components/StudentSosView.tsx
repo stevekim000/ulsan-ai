@@ -165,9 +165,8 @@ export default function StudentSosView({
         />
       </div>
 
-      {/* Requirement 2: Voice-to-Landmark AI Engine */}
+      {/* Requirement 2: Voice-to-Landmark AI Engine (테스트용: GPS 고도 미전달, 순수 음성 단서 분석) */}
       <VoiceLocationAnalyzer
-        currentAltitude={mockCurrentLocation.altitude}
         onAnalysisComplete={onAiAnalysisDone}
       />
 

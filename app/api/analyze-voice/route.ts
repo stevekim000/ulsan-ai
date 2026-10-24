@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
         const prompt = `
 당신은 대한민국 산악 긴급 구조 전문 AI '산울림 AI'입니다.
 학생이 수학여행 중 한라산 국립공원에서 조난을 당해 음성으로 주변 환경을 묘사했습니다.
-학생의 음성 내용과 현재 측정된 기압 고도(${currentAltitude || "알 수 없음"}m)를 분석하여 아래 제공된 한라산 5개 탐방로 데이터 중 학생이 위치한 지점을 가장 정밀하게 특정해주세요.
+학생이 음성으로 진술한 주변 환경(표지판, 해발 고도 팻말 숫자, 건물, 바위, 약수터 등)만을 오직 분석하여 아래 제공된 한라산 5개 탐방로 데이터 중 학생이 위치한 지점을 가장 정밀하게 특정해주세요.
 
 ## 유사 표현 동의어 처리:
 - "영실", "영실코스", "영실 코스", "영실로", "영실길" 등은 모두 '영실 코스'로 인식
@@ -181,8 +181,8 @@ ${trailData}
       }
     }
 
-    // 2. Fallback: 오프라인/온디바이스 자연어 처리 엔진 (5개 코스 전체 + 표지판 + 동의어 활용)
-    const localResult = analyzeVoiceEnvironment(voiceTranscript, currentAltitude);
+    // 2. Fallback: 오프라인/온디바이스 자연어 처리 엔진 (테스트 모드: GPS 고도 미사용, 순수 음성 단서 분석)
+    const localResult = analyzeVoiceEnvironment(voiceTranscript);
     return NextResponse.json({
       ...localResult,
       isGeminiPowered: false,

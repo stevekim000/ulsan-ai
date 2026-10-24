@@ -154,13 +154,12 @@ export default function VoiceLocationAnalyzer({
   const runAIAnalysis = async (textToAnalyze: string) => {
     setIsAnalyzing(true);
     try {
-      // 1. Google Gemini 1.5 Flash API 라우트 호출 시도
+      // 1. Google Gemini 1.5 Flash API 라우트 호출 (테스트 모드: 사용자의 GPS 고도 미전송)
       const res = await fetch("/api/analyze-voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           voiceTranscript: textToAnalyze,
-          currentAltitude,
           userApiKey: apiKey.trim() || undefined,
         }),
       });
@@ -175,8 +174,8 @@ export default function VoiceLocationAnalyzer({
       onAnalysisComplete(data);
     } catch (err) {
       console.warn("Falling back to local NLP engine:", err);
-      // 2. 네트워크 장애/두절 시 즉시 온디바이스 로컬 AI로 안전하게 Fallback
-      const fallbackResult = analyzeVoiceEnvironment(textToAnalyze, currentAltitude);
+      // 2. 네트워크 장애/두절 시 즉시 온디바이스 로컬 AI로 안전하게 Fallback (순수 음성 분석)
+      const fallbackResult = analyzeVoiceEnvironment(textToAnalyze);
       setResult(fallbackResult);
       setIsAnalyzing(false);
       onAnalysisComplete(fallbackResult);
@@ -192,13 +191,19 @@ export default function VoiceLocationAnalyzer({
             <Mic className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-extrabold text-base text-white flex items-center gap-1.5">
-              <span>음성 주변환경 AI 위치 특정</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-extrabold text-base text-white">
+                음성 주변환경 AI 위치 특정
+              </h3>
               <span className="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">
                 특허 출원형 핵심 기술
               </span>
-            </h3>
-            <p className="text-xs text-slate-400">
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <span>🧪</span>
+                <span>테스트 모드: GPS 고도 감지 OFF (100% 음성 단서 기반 추론)</span>
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
               산에서 보이는 <b>해발 고도 팻말, 표지목 번호, 약수터, 대피소</b> 등을 말하면 AI가 등산로 위치를 특정합니다.
             </p>
           </div>

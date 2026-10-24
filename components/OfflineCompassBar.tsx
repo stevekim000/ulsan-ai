@@ -30,18 +30,17 @@ export default function OfflineCompassBar({
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    // 2. 브라우저 Geolocation 센서 시도
+    // 2. 브라우저 Geolocation 센서 (테스트용: 고도는 사용자의 실제 GPS를 감지하지 않고 음성 AI로만 판정)
     let watchId: number | null = null;
     if (typeof navigator !== "undefined" && navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
-          if (pos.coords.altitude) setAltitude(Math.round(pos.coords.altitude));
+          // 테스트용: 고도(pos.coords.altitude)는 실제 GPS를 감지하지 않음
           if (pos.coords.heading) setHeading(Math.round(pos.coords.heading));
           
           appendOfflineGps({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
-            altitude: pos.coords.altitude || undefined,
             accuracy: pos.coords.accuracy,
             heading: pos.coords.heading || undefined,
             timestamp: Date.now(),
@@ -49,7 +48,7 @@ export default function OfflineCompassBar({
           setOfflinePointsCount((prev) => prev + 1);
         },
         (err) => {
-          // fallback simulator handles altitude
+          // fallback simulator handles navigation
         },
         { enableHighAccuracy: true }
       );
