@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import { Student, AIEstimateResult } from "@/types/rescue";
-import { HALLASAN_LANDMARKS } from "@/lib/mountainData";
+import { HALLASAN_LANDMARKS, HALLASAN_TRAILS } from "@/lib/mountainData";
 
 interface MountainMapProps {
   students: Student[];
@@ -43,10 +43,10 @@ export default function MountainMap({
         (mapContainerRef.current as any)._leaflet_id = null;
       }
 
-      // 한라산 중심 (진달래밭 대피소 부근)
+      // 한라산 백록담 중심 (5개 코스 전체 조망)
       const map = L.map(mapContainerRef.current, {
-        center: [33.365, 126.565],
-        zoom: 13,
+        center: [33.365, 126.535],
+        zoom: 12,
         zoomControl: true,
       });
 
@@ -87,34 +87,41 @@ export default function MountainMap({
     if (!layerGroupRef.current || !mapInstanceRef.current) return;
     layerGroupRef.current.clearLayers();
 
-    // 1. 성판악 탐방로 등산로 폴리라인 그리기
-    const trailCoords = HALLASAN_LANDMARKS.map((p) => [p.lat, p.lng]);
-    L.polyline(trailCoords, {
-      color: "#2563eb",
-      weight: 4,
-      dashArray: "6, 8",
-      opacity: 0.8,
-    }).addTo(layerGroupRef.current);
+    // 1. 한라산 5개 코스별 등산로 폴리라인 그리기
+    Object.entries(HALLASAN_TRAILS).forEach(([trailName, trail]) => {
+      const trailCoords = trail.keyPoints.map((p) => [p.lat, p.lng]);
+      const polyline = L.polyline(trailCoords as [number, number][], {
+        color: trail.color,
+        weight: 4,
+        opacity: 0.85,
+        smoothFactor: 1,
+      }).addTo(layerGroupRef.current);
 
-    // 2. 한라산 랜드마크 POI 마커 추가
+      polyline.bindTooltip(
+        `<b>${trailName} 탐방로</b> (${trail.totalDistanceKm}km, 약 ${trail.expectedHours}시간, 종점: ${trail.endPointName})`,
+        { sticky: true, className: "trail-tooltip" }
+      );
+    });
+
+    // 2. 한라산 5개 코스 주요 랜드마크 POI 마커 추가
     HALLASAN_LANDMARKS.forEach((poi) => {
-      const isSummit = poi.type === "ridge";
+      const isSummit = poi.type === "ridge" || poi.name.includes("정상");
       const isShelter = poi.type === "shelter";
 
       const iconHtml = `
         <div style="
           background-color: ${isSummit ? "#dc2626" : isShelter ? "#2563eb" : "#059669"};
           color: white;
-          width: 28px;
-          height: 28px;
+          width: 26px;
+          height: 26px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: bold;
           border: 2px solid white;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.35);
         ">
           ${isSummit ? "🚩" : isShelter ? "🏠" : poi.type === "spring" ? "💧" : "📍"}
         </div>
@@ -123,8 +130,8 @@ export default function MountainMap({
       const customIcon = L.divIcon({
         className: "custom-poi-marker",
         html: iconHtml,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
       });
 
       const marker = L.marker([poi.lat, poi.lng], { icon: customIcon }).addTo(
@@ -132,14 +139,14 @@ export default function MountainMap({
       );
 
       marker.bindPopup(`
-        <div style="font-family: sans-serif; padding: 4px;">
-          <h4 style="margin: 0 0 4px; font-weight: bold; font-size: 14px; color: #1e293b;">
+        <div style="font-family: sans-serif; padding: 4px; max-width: 200px;">
+          <h4 style="margin: 0 0 4px; font-weight: bold; font-size: 13px; color: #1e293b;">
             ${poi.name}
           </h4>
-          <p style="margin: 0 0 4px; font-size: 12px; color: #64748b;">
-            해발 고도: <b>${poi.altitude}m</b> | 유형: ${poi.type}
+          <p style="margin: 0 0 4px; font-size: 11px; color: #64748b;">
+            해발 <b>${poi.altitude}m</b> | 구분: ${poi.type}
           </p>
-          <p style="margin: 0; font-size: 11px; color: #475569;">
+          <p style="margin: 0; font-size: 11px; color: #334155;">
             ${poi.description}
           </p>
         </div>
@@ -320,22 +327,37 @@ export default function MountainMap({
       <div ref={mapContainerRef} style={{ height, width: "100%" }} />
 
       {/* Map Legend Overlay */}
-      <div className="absolute bottom-3 left-3 z-[1000] bg-slate-950/85 backdrop-blur-md border border-slate-700/60 rounded-xl p-2.5 text-[11px] text-slate-300 shadow-xl flex flex-wrap items-center gap-3">
-        <div className="flex items-center space-x-1">
-          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
-          <span>성판악 탐방로</span>
+      <div className="absolute bottom-3 left-3 right-3 sm:right-auto z-[1000] bg-slate-950/90 backdrop-blur-md border border-slate-700/60 rounded-xl p-2.5 text-[11px] text-slate-300 shadow-xl flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <div className="flex items-center space-x-1.5 font-bold text-slate-200 mr-1 border-r border-slate-700 pr-2">
+          <span>한라산 5대 탐방로</span>
         </div>
         <div className="flex items-center space-x-1">
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: "#FF9800" }}></span>
+          <span>영실</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: "#4CAF50" }}></span>
+          <span>성판악</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: "#2196F3" }}></span>
+          <span>관음사</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: "#9C27B0" }}></span>
+          <span>어리목</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: "#E91E63" }}></span>
+          <span>돈내코</span>
+        </div>
+        <div className="hidden sm:flex items-center space-x-1 border-l border-slate-700 pl-2">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse inline-block"></span>
           <span>조난 학생</span>
         </div>
-        <div className="flex items-center space-x-1">
+        <div className="hidden sm:flex items-center space-x-1">
           <span className="w-3.5 h-2.5 border border-red-500 border-dashed bg-red-500/30 inline-block rounded"></span>
-          <span>AI 특정 수색 반경</span>
-        </div>
-        <div className="flex items-center space-x-1">
-          <span className="w-5 h-0.5 border-t-2 border-dashed border-red-400 inline-block"></span>
-          <span>조난 이동 궤적</span>
+          <span>AI 특정 영역</span>
         </div>
       </div>
     </div>

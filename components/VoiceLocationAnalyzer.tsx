@@ -10,11 +10,43 @@ interface VoiceLocationAnalyzerProps {
   currentAltitude?: number;
 }
 
-const SAMPLE_VOICE_PROMPTS = [
-  "선생님, 친구들이랑 떨어졌는데 앞에 해발 1500m라고 적힌 큰 나무 팻말이 보이고 대피소 건물이 희미하게 보여요.",
-  "안개가 너무 짙어서 길을 잃었어요. 방금 사라오름 갈림길 4-12 표지목을 지나쳤고 나무 계단 밑이에요.",
-  "주변에 물 흐르는 소리가 들리고 돌계단 시작하는 속밭 샘터 약수터 근처에 혼자 앉아있어요.",
-  "해발 1700미터 고사목 지대 같은데 하얀 마른나무들이 많고 바위가 엄청 미끄러워요.",
+interface SamplePrompt {
+  tag: string;
+  course: string;
+  text: string;
+}
+
+const SAMPLE_VOICE_PROMPTS: SamplePrompt[] = [
+  {
+    tag: "영실 1-14",
+    course: "영실",
+    text: "영실 코스로 올라가다 친구들을 놓쳤어요. 방금 영실 1-14 오백나한 조망터 지나서 구상나무 숲길 쪽인데 안개가 너무 짙어요.",
+  },
+  {
+    tag: "성판악 1-24",
+    course: "성판악",
+    text: "선생님, 친구들이랑 떨어졌는데 성판악 1-24 진달래밭 대피소 건물 근처이고 해발 1500m 표지석이 보여요.",
+  },
+  {
+    tag: "관음사 2-23",
+    course: "관음사",
+    text: "관음사 코스로 하산하다 발목을 삐었어요. 표지판에 관음사 2-23 삼각봉 대피소 앞이라고 써있고 바람이 엄청 불어요.",
+  },
+  {
+    tag: "어리목 3-15",
+    course: "어리목",
+    text: "어리목으로 하산하다 만세동산 전망대 지나 사제비샘 방향에서 길을 잃었어요. 표지목 3-15가 보여요.",
+  },
+  {
+    tag: "돈내코 5-20",
+    course: "돈내코",
+    text: "돈내코 코스 남벽분기점 가기 전 평궤 대피소 근처에서 친구들과 떨어졌어요. 해발 1450미터 팻말이 있어요.",
+  },
+  {
+    tag: "국가지점번호",
+    course: "지점번호",
+    text: "노란색 조난 표지판에 국가지점번호 '다라 0155 8122' 라고 적혀있어요! 살려주세요.",
+  },
 ];
 
 export default function VoiceLocationAnalyzer({
@@ -285,17 +317,24 @@ export default function VoiceLocationAnalyzer({
           <Volume2 className="w-3.5 h-3.5 text-blue-400" />
           <span>발표 및 시뮬레이션용 빠른 음성 예시 선택 (클릭 시 즉시 AI 분석):</span>
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {SAMPLE_VOICE_PROMPTS.map((sample, idx) => (
             <button
               key={idx}
-              onClick={() => handleSelectSample(sample)}
-              className="text-left p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-blue-500/50 rounded-xl text-[11px] text-slate-300 transition-all flex items-start gap-2 group"
+              onClick={() => handleSelectSample(sample.text)}
+              className="text-left p-2.5 bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-indigo-500/60 rounded-xl text-[11px] text-slate-300 transition-all flex flex-col gap-1.5 group shadow-sm hover:shadow-indigo-500/10"
             >
-              <span className="w-4 h-4 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                {idx + 1}
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  {sample.course}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400 group-hover:text-amber-400 transition-colors">
+                  📍 {sample.tag}
+                </span>
+              </div>
+              <span className="line-clamp-2 leading-relaxed text-slate-300 text-[11px] group-hover:text-white transition-colors">
+                "{sample.text}"
               </span>
-              <span className="line-clamp-2 leading-relaxed">{sample}</span>
             </button>
           ))}
         </div>

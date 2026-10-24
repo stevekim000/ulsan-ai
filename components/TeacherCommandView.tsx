@@ -48,10 +48,12 @@ export default function TeacherCommandView({
 
   const handleDispatch119 = () => {
     setDispatch119Done(true);
+    const poiName = aiEstimate?.matchedPOI?.name || "조난 지점";
+    const radius = aiEstimate?.radiusMeters || 25;
     const event = {
       timestamp: Date.now(),
       title: "인솔교사, 119 산악구조대에 AI 추정 정밀 좌표 긴급 전송",
-      content: `인솔교사가 119 상황실로 김민준 학생의 AI 위치 추정 데이터(진달래밭 대피소 반경 35m) 및 음성 녹취록을 전달했습니다. 구조팀 출동 개시.`,
+      content: `인솔교사가 119 상황실로 김민준 학생의 AI 위치 추정 데이터(${poiName} 반경 ${radius}m) 및 음성 녹취록을 전달했습니다. 구조팀 출동 개시.`,
       type: "rescue_team" as const,
       actor: "인솔교사 김선생",
     };
@@ -61,7 +63,7 @@ export default function TeacherCommandView({
       onNotification({
         type: "rescue_team",
         title: "119 산악구조대 긴급 출동 접수",
-        message: "김민준 학생의 AI 정밀 추정 좌표 및 녹취록이 119 상황실에 전송되어 구조팀이 현장으로 긴급 출동했습니다.",
+        message: `김민준 학생의 AI 정밀 추정 좌표(${poiName}) 및 녹취록이 119 상황실에 전송되어 구조팀이 현장으로 긴급 출동했습니다.`,
       });
     }
   };
@@ -306,7 +308,7 @@ export default function TeacherCommandView({
         <div className="flex items-center justify-between text-xs text-slate-300 px-1">
           <span className="font-bold flex items-center gap-1.5">
             <MapPin className="w-4 h-4 text-blue-500" />
-            <span>한라산 성판악 탐방로 실시간 등고선 관제 맵</span>
+            <span>한라산 5대 탐방로 실시간 등고선 관제 맵</span>
           </span>
           <span className="text-[11px] text-slate-400">
             실시간 GPS 궤적 및 AI 특정 수색 반경 시각화
