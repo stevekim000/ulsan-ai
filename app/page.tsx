@@ -5,19 +5,17 @@ import {
   Mountain, 
   Radio, 
   ShieldCheck, 
-  AlertOctagon, 
-  HeartHandshake
+  AlertOctagon
 } from "lucide-react";
 import StudentSosView from "@/components/StudentSosView";
 import TeacherCommandView from "@/components/TeacherCommandView";
-import ParentTrustReport from "@/components/ParentTrustReport";
 import NotificationToast, { ToastNotification } from "@/components/NotificationToast";
 import { Student, RescueTimelineEvent, AIEstimateResult, NetworkStatus } from "@/types/rescue";
 import { getStoredStudents, getStoredTimeline, saveStudents } from "@/lib/storage";
 import { DEFAULT_HIKING_TRAIL } from "@/lib/mountainData";
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<"student" | "teacher" | "parent">("student");
+  const [activeTab, setActiveTab] = useState<"student" | "teacher">("student");
   const [students, setStudents] = useState<Student[]>([]);
   const [timeline, setTimeline] = useState<RescueTimelineEvent[]>([]);
   const [aiEstimate, setAiEstimate] = useState<AIEstimateResult | null>(null);
@@ -100,8 +98,6 @@ export default function HomePage() {
     );
   }
 
-  const emergencyStudent = students.find((s) => s.status === "emergency");
-
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-slate-950 text-slate-100">
       {/* Notification Toast System */}
@@ -131,7 +127,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Perspective Role Switcher (학생 / 교사 / 학부모) */}
+          {/* Perspective Role Switcher (학생 / 교사) */}
           <div className="flex items-center bg-slate-900 p-1 rounded-2xl border border-slate-800 shadow-inner">
             <button
               onClick={() => setActiveTab("student")}
@@ -156,18 +152,6 @@ export default function HomePage() {
               <Radio className="w-3.5 h-3.5" />
               <span>교사 관제탑</span>
             </button>
-
-            <button
-              onClick={() => setActiveTab("parent")}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                activeTab === "parent"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <HeartHandshake className="w-3.5 h-3.5" />
-              <span>학부모 안심 리포트</span>
-            </button>
           </div>
         </div>
       </header>
@@ -188,13 +172,6 @@ export default function HomePage() {
             students={students}
             aiEstimate={aiEstimate}
             onNotification={addNotification}
-          />
-        )}
-
-        {activeTab === "parent" && (
-          <ParentTrustReport
-            timeline={timeline}
-            emergencyStudent={emergencyStudent}
           />
         )}
       </main>

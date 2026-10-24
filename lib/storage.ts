@@ -122,7 +122,7 @@ export const INITIAL_TIMELINE: RescueTimelineEvent[] = [
     id: "tl-04",
     timestamp: Date.now() - 1000 * 60 * 1,
     title: "119 한라산 산악구조대 및 인솔교사 현장 이동",
-    content: "AI 특정 좌표(진달래밭 대피소 부근)로 구조대 및 인솔교사 급파. 학부모 안심 리포트 실시간 동기화.",
+    content: "AI 특정 좌표(진달래밭 대피소 부근)로 구조대 및 인솔교사 급파. 통합 상황실 실시간 동기화.",
     type: "rescue_team",
     actor: "제주소방 산악구조대 & 교직원",
   },
