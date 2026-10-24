@@ -382,7 +382,7 @@ export function getAllKeyPoints(): (TrailKeyPoint & { trail: TrailName })[] {
 }
 
 // ============================================================
-// 하위 호환성 유지: 기존 코드가 사용하던 HALLASAN_LANDMARKS
+// 전체 POI 목록 (모든 코스 키포인트를 LandmarkPOI 호환 형태로 변환)
 // ============================================================
 export const HALLASAN_LANDMARKS: LandmarkPOI[] = getAllKeyPoints().map((kp, idx) => ({
   id: `halla-${kp.trail}-${idx}`,
@@ -404,12 +404,209 @@ export const HALLASAN_LANDMARKS: LandmarkPOI[] = getAllKeyPoints().map((kp, idx)
   ]
 }));
 
+export interface LandmarkTerrainProfile {
+  name: string;
+  trail: TrailName;
+  alt: number;
+  features: string;       // 지형 형태
+  surface: string;        // 등산로 바닥
+  vegetation: string;     // 식생
+  weatherHazard: string;  // 기상 및 지형 위험
+  keywords: string[];     // 감지 키워드
+}
+
+// ============================================================
+// 한라산 주요 거점별 정밀 지형 데이터베이스
+// AI가 음성 텍스트와 1:1로 비교·대조하여 현장 지형을 정밀 예측할 때 기준이 됨
+// ============================================================
+export const HALLASAN_TERRAIN_PROFILES: LandmarkTerrainProfile[] = [
+  // --- 영실 코스 ---
+  {
+    name: "오백나한(영실기암) 조망터",
+    trail: "영실",
+    alt: 1500,
+    features: "수직 주상절리 기암괴석(오백장군 바위)이 병풍처럼 솟아있는 급경사 암벽 능선 지대",
+    surface: "가파른 목재 데크 계단이 끝나고 굵은 화강암 너덜바위와 자갈 흙길이 교차하는 구간",
+    vegetation: "해발 1,500m 아고산대 경계면으로 털진달래와 구상나무 군락지가 시작되는 지점",
+    weatherHazard: "영실계곡에서 치솟는 골바람으로 인해 짙은 농무(안개)가 급격히 차오르며, 시야 차단 시 낭떠러지 추락 위험 극대화",
+    keywords: ["오백나한", "영실기암", "오백장군", "1-14", "1500", "바위", "안개", "기암괴석"]
+  },
+  {
+    name: "병풍바위 상단 쉼터",
+    trail: "영실",
+    alt: 1450,
+    features: "거대한 병풍바위 주상절리 최상단부에 위치한 쉼터 데크",
+    surface: "가파른 경사의 목재 데크 계단 구간",
+    vegetation: "절벽 틈새에 자생하는 왜소성 관목류",
+    weatherHazard: "수직 절벽 상단으로 강풍과 추락 위험이 가장 높은 구간",
+    keywords: ["병풍바위", "병풍", "1-12", "1450", "계단", "바위"]
+  },
+  {
+    name: "선작지왓 평전 진입로",
+    trail: "영실",
+    alt: 1650,
+    features: "제주 방언 '작은 돌이 서 있는 밭'이라는 의미의 광활한 한라산 고원 평전",
+    surface: "완만한 경사의 평탄한 목재 데크 탐방로 및 화산석 자갈길",
+    vegetation: "털진달래와 산철쭉, 눈향나무가 넓게 군락을 이룬 고산 관목 초원",
+    weatherHazard: "사방이 탁 트여 있어 태풍급 돌풍과 강풍에 완전히 노출되며, 짙은 안개 발생 시 방향 감각 상실 위험",
+    keywords: ["선작지왓", "선작지", "평전", "평원", "1-19", "1650", "벌판", "돌풍"]
+  },
+  {
+    name: "윗세오름 대피소",
+    trail: "영실",
+    alt: 1720,
+    features: "붉은오름·누운오름·족은오름 세 개의 오름 아래 위치한 해발 1,700m대 고산 대피소 광장",
+    surface: "넓은 목재 데크 광장, 대피소 건물, 화장실, 음수대",
+    vegetation: "구상나무 고사목과 진달래 군락",
+    weatherHazard: "기온 급강하 및 폭설, 짙은 구름으로 인한 시계 불량",
+    keywords: ["윗세오름", "윗세", "대피소", "1-23", "1720", "건물", "광장"]
+  },
+
+  // --- 성판악 코스 ---
+  {
+    name: "진달래밭 대피소",
+    trail: "성판악",
+    alt: 1500,
+    features: "백록담 정상 진입 직전 해발 1,500m에 형성된 완만한 화산 쇄설물 평탄지 쉼터",
+    surface: "넓은 목재 데크 쉼터와 평탄한 현무암 돌길, 대피소 통제소 건물",
+    vegetation: "키 작은 털진달래 군락지와 구상나무 숲이 완만하게 펼쳐짐",
+    weatherHazard: "백록담 정상 입산 통제 기준점으로, 기온 급강하 시 저체온증 취약 및 안개 시 방향 착오 주의",
+    keywords: ["진달래밭", "진달래", "1-24", "1500", "대피소", "통제소", "건물"]
+  },
+  {
+    name: "속밭 대피소",
+    trail: "성판악",
+    alt: 1100,
+    features: "울창한 숲속 분지에 위치한 무인 대피소 거점",
+    surface: "완만한 흙길과 목재 데크 쉼터, 화장실",
+    vegetation: "천연 활엽수와 삼나무가 우거진 숲길",
+    weatherHazard: "숲이 깊어 일몰 시 어둠이 급격히 찾아오며 계곡 습기로 바닥 미끄럼 주의",
+    keywords: ["속밭", "1-12", "1100", "대피소", "숲길"]
+  },
+  {
+    name: "사라오름 입구(사라샘)",
+    trail: "성판악",
+    alt: 1300,
+    features: "사라오름 산정호수 갈림길 계단과 시원한 샘물(사라샘)이 솟는 약수터 지대",
+    surface: "가파른 목재 계단 갈림길과 현무암 돌길",
+    vegetation: "서어나무와 단풍나무 등 혼효림 지대",
+    weatherHazard: "물기로 인한 돌계단 미끄럼 낙상 및 분기점 길 엇갈림 주의",
+    keywords: ["사라오름", "사라샘", "사라", "1-18", "1300", "약수터", "샘", "물소리"]
+  },
+  {
+    name: "백록담 동릉 정상",
+    trail: "성판악",
+    alt: 1950,
+    features: "한라산 최고봉 백록담 분화구 화구벽을 마주하는 최정상 능선 데크",
+    surface: "목재 데크 전망대 및 가파른 정상 능선 자갈길",
+    vegetation: "시무나무와 눈향나무 등 왜소 고산 식물",
+    weatherHazard: "칼바람과 극심한 기상 급변, 낭떠러지 화구벽 추락 극위험 지대",
+    keywords: ["백록담", "정상", "동릉", "1-36", "1950", "분화구", "칼바람"]
+  },
+
+  // --- 관음사 코스 ---
+  {
+    name: "삼각봉 대피소",
+    trail: "관음사",
+    alt: 1500,
+    features: "삼각뿔 형태의 거대한 화산암 암봉(삼각봉) 바로 아래 위치한 웅장한 대피소 광장",
+    surface: "목재 데크 대피소 광장과 거친 현무암 돌계단, 용진각 현수교 진입로",
+    vegetation: "원시림 협곡 및 험준한 암벽 관목대",
+    weatherHazard: "협곡을 통과하는 강풍과 체감온도 급락, 기암벽 낙석 및 험로 실족 고위험",
+    keywords: ["삼각봉", "2-24", "2-23", "1500", "대피소", "암봉", "바람"]
+  },
+  {
+    name: "탐라계곡 대피소",
+    trail: "관음사",
+    alt: 950,
+    features: "깊은 V자 탐라계곡 목교를 건너 가파른 계단 위에 위치한 무인 대피소",
+    surface: "급경사 목재 계단과 계곡 목교 다리",
+    vegetation: "울창한 낙엽활엽수 원시림",
+    weatherHazard: "폭우 시 계곡 범람 및 급경사 계단 추락 위험",
+    keywords: ["탐라계곡", "탐라", "2-12", "950", "계곡", "목교", "다리"]
+  },
+  {
+    name: "용진각 현수교(출렁다리)",
+    trail: "관음사",
+    alt: 1600,
+    features: "옛 용진각 대피소 터 인근 깊은 협곡을 가로지르는 웅장한 현수교 출렁다리",
+    surface: "철제 및 목재 현수교 상판과 암반 데크",
+    vegetation: "가파른 암벽 및 고사목",
+    weatherHazard: "깊은 협곡 강풍으로 다리 흔들림, 안개 시 고소공포 및 발밑 실족 주의",
+    keywords: ["용진각", "현수교", "출렁다리", "2-27", "1600", "다리", "협곡"]
+  },
+
+  // --- 어리목 코스 ---
+  {
+    name: "사제비샘(음수대)",
+    trail: "어리목",
+    alt: 1420,
+    features: "가파른 돌계단 숲길을 벗어나 만나는 시원한 천연 용천수 음수대 쉼터",
+    surface: "현무암 돌계단 끝 지점과 평탄한 화산석 바닥",
+    vegetation: "울창한 숲에서 사제비동산 관목 초원으로 전환되는 지대",
+    weatherHazard: "습기로 인한 바위 미끄럼 및 급경사 후 탈진 주의",
+    keywords: ["사제비샘", "사제비", "1-8", "1420", "샘", "약수터", "물", "돌계단"]
+  },
+  {
+    name: "만세동산 전망대",
+    trail: "어리목",
+    alt: 1600,
+    features: "백록담 북서벽과 제주 서부 오름 군락이 파노라마로 펼쳐지는 목재 전망 데크",
+    surface: "목재 데크 전망대와 완만한 자갈 흙길",
+    vegetation: "시원하게 트인 고산 초원 및 저목성 관목",
+    weatherHazard: "강풍 노출 및 안개 유입 시 망원경 전망대 인근 시야 차단 주의",
+    keywords: ["만세동산", "전망대", "1-13", "1600", "초원", "전망"]
+  },
+
+  // --- 돈내코 코스 ---
+  {
+    name: "평궤 대피소",
+    trail: "돈내코",
+    alt: 1450,
+    features: "용암이 흘러 굳으며 형성된 천연 암석 그늘(평궤) 형태의 무인 대피소 지대",
+    surface: "크고 거친 현무암 너덜바위와 숲속 오솔길",
+    vegetation: "상록활엽수림에서 침엽수림으로 교체되는 원시림",
+    weatherHazard: "탐방객이 적어 등산로 경계 식별이 어렵고 짙은 숲 그늘로 방향 착오 고위험",
+    keywords: ["평궤", "평궤대피소", "1-16", "1450", "바위그늘", "대피소"]
+  },
+  {
+    name: "남벽분기점",
+    trail: "돈내코",
+    alt: 1600,
+    features: "한라산 백록담 남벽의 거대한 수직 화구벽이 병풍처럼 올려다보이는 삼거리 분기점",
+    surface: "목재 데크 통제소 광장 및 평탄한 자갈길",
+    vegetation: "남벽 아래 거친 화산 쇄설물 암석원 및 왜소 관목대",
+    weatherHazard: "남벽 화구벽 낙석 위험 및 안개 시 윗세오름/돈내코 갈림길 혼선 주의",
+    keywords: ["남벽", "남벽분기점", "1-27", "1600", "분기점", "갈림길", "화구벽"]
+  }
+];
+
+export function getTerrainProfile(name: string, trail?: TrailName, alt?: number): LandmarkTerrainProfile | undefined {
+  // 1. 이름 완전/부분 일치
+  const byName = HALLASAN_TERRAIN_PROFILES.find(p =>
+    p.name.includes(name) || name.includes(p.name) || p.keywords.some(k => name.includes(k))
+  );
+  if (byName) return byName;
+
+  // 2. 코스 + 고도 일치
+  if (trail && alt) {
+    const byTrailAlt = HALLASAN_TERRAIN_PROFILES.find(p =>
+      p.trail === trail && Math.abs(p.alt - alt) <= 60
+    );
+    if (byTrailAlt) return byTrailAlt;
+  }
+
+  return undefined;
+}
+
 export const DEFAULT_HIKING_TRAIL = {
   mountainName: "한라산 국립공원",
   location: "제주특별자치도",
   trails: HALLASAN_TRAILS,
   signs: HALLASAN_SIGNS,
   synonyms: LANDMARK_SYNONYMS,
+  terrainProfiles: HALLASAN_TERRAIN_PROFILES,
   totalTrails: 5,
   peakAltitude: 1950,
 };
+

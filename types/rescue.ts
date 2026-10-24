@@ -45,10 +45,13 @@ export interface InferenceStep {
 }
 
 export interface TerrainAnalysis {
-  terrainType: string;       // 지형 유형 (예: "기암괴석 암벽 지대", "아고산대 구상나무 침엽수림")
-  weatherCondition?: string; // 기상/시야 (예: "짙은 안개로 시야 15m 미만", "강풍/돌풍")
-  riskFactor?: string;       // 위험 요소 (예: "급경사 낙상 위험", "저체온증 취약", "발목 부상")
-  trailCourse?: string;      // 코스 정보 (예: "영실 코스 상행 3.7km 지점")
+  terrainType: string;           // 지형 유형 및 형태 (예: "기암괴석 급경사 암벽·너덜 지대")
+  weatherCondition?: string;     // 기상/시야 상태 (예: "짙은 안개로 시야 15m 미만 (시계 제로)")
+  riskFactor?: string;           // 위험 요소 예측 (예: "낭떠러지 추락 및 저체온증 고위험")
+  trailCourse?: string;          // 코스 및 구간 정보 (예: "영실 코스 상행 3.7km (해발 1,500m)")
+  trailSurface?: string;         // 등산로 바닥 및 보행 환경 (예: "가파른 목재 데크 계단 및 거친 암반 너덜길")
+  vegetation?: string;           // 주변 식생 및 수림 분포 (예: "아고산대 구상나무 군락 및 털진달래 지대")
+  comparisonExplanation?: string;// 음성 데이터와 학습 지형 데이터 간 비교 분석 결과
 }
 
 export interface AIEstimateResult {

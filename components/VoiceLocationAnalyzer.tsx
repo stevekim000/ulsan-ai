@@ -414,43 +414,72 @@ export default function VoiceLocationAnalyzer({
             </div>
           </div>
 
-          {/* 1. 정밀 지형 및 위험 환경 분석 (Terrain & Hazard Analysis) */}
+          {/* 1. 음성 단서 ↔ 학습 지형 데이터 대조 기반 정밀 지형 예측 (Terrain Prediction) */}
           {result.terrainAnalysis && (
-            <div className="p-3.5 bg-slate-950/80 border border-amber-500/30 rounded-xl space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
-                  <span>⛰️</span>
-                  <span>지형 및 조난 환경 정밀 분석</span>
+            <div className="p-4 bg-slate-950/90 border border-amber-500/40 rounded-2xl space-y-3 shadow-lg shadow-amber-950/20">
+              <div className="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
+                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <span className="text-sm">⛰️</span>
+                  <span>음성 단서 ↔ 학습 지형 데이터 대조 기반 지형 예측</span>
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-medium">
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
                   {result.terrainAnalysis.trailCourse || "한라산 탐방로"}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block font-semibold mb-0.5">
-                    🏔️ 지형 형태 및 특성
+              {/* 비교 분석 총평 */}
+              {result.terrainAnalysis.comparisonExplanation && (
+                <div className="p-2.5 bg-amber-950/30 border border-amber-500/20 rounded-xl text-xs text-amber-200/90 leading-relaxed font-medium">
+                  💡 <b>비교 분석 결과:</b> {result.terrainAnalysis.comparisonExplanation}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-amber-400 block font-bold flex items-center gap-1">
+                    <span>🏔️</span>
+                    <span>예측 지형 형태 및 특성</span>
                   </span>
-                  <span className="text-slate-200 font-medium leading-relaxed">
+                  <span className="text-slate-200 font-medium leading-relaxed block">
                     {result.terrainAnalysis.terrainType}
                   </span>
                 </div>
 
-                <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block font-semibold mb-0.5">
-                    🌫️ 기상 및 시야 상태
+                <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-sky-400 block font-bold flex items-center gap-1">
+                    <span>🥾</span>
+                    <span>등산로 바닥 및 보행 환경</span>
                   </span>
-                  <span className="text-slate-200 font-medium leading-relaxed">
+                  <span className="text-slate-200 font-medium leading-relaxed block">
+                    {result.terrainAnalysis.trailSurface || "화산석 자갈 및 목재 데크"}
+                  </span>
+                </div>
+
+                <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-emerald-400 block font-bold flex items-center gap-1">
+                    <span>🌲</span>
+                    <span>주변 식생 및 수림 분포</span>
+                  </span>
+                  <span className="text-slate-200 font-medium leading-relaxed block">
+                    {result.terrainAnalysis.vegetation || "아고산대 관목 및 침엽수림"}
+                  </span>
+                </div>
+
+                <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-purple-400 block font-bold flex items-center gap-1">
+                    <span>🌫️</span>
+                    <span>기상 및 시계 상태 예측</span>
+                  </span>
+                  <span className="text-slate-200 font-medium leading-relaxed block">
                     {result.terrainAnalysis.weatherCondition}
                   </span>
                 </div>
               </div>
 
               {result.terrainAnalysis.riskFactor && (
-                <div className="bg-red-950/40 border border-red-500/30 p-2 rounded-lg text-xs flex items-center gap-2 text-red-200">
-                  <span className="text-red-400 shrink-0 font-bold">⚠️ 주요 위험:</span>
-                  <span className="font-medium">{result.terrainAnalysis.riskFactor}</span>
+                <div className="bg-red-950/50 border border-red-500/40 p-2.5 rounded-xl text-xs flex items-center gap-2 text-red-200">
+                  <span className="text-red-400 shrink-0 font-extrabold text-xs">⚠️ 지형 위험도:</span>
+                  <span className="font-semibold">{result.terrainAnalysis.riskFactor}</span>
                 </div>
               )}
             </div>
