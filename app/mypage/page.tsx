@@ -33,14 +33,32 @@ import {
   Calendar,
   MessageSquare,
   Sparkles,
-  LogIn
+  LogIn,
+  Edit3,
+  Save,
+  X,
+  Users,
+  GraduationCap
 } from "lucide-react";
 
 const ITEMS_PER_PAGE = 5;
 
 export default function MyPage() {
   const router = useRouter();
-  const { user, userProfile, displayName, isAdmin, loading: authLoading, loginWithGoogle, schoolDomain } = useAuth();
+  const { 
+    user, 
+    userProfile, 
+    displayName, 
+    role, 
+    isAdmin, 
+    isSuperAdmin,
+    isCouncil,
+    isTeacher,
+    loading: authLoading, 
+    loginWithGoogle, 
+    updateUserProfile,
+    schoolDomain 
+  } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"my" | "agreed">("my");
   const [myPetitions, setMyPetitions] = useState<Petition[]>([]);
@@ -48,6 +66,41 @@ export default function MyPage() {
   const [loadingData, setLoadingData] = useState<boolean>(true);
   const [myCurrentPage, setMyCurrentPage] = useState<number>(1);
   const [agreedCurrentPage, setAgreedCurrentPage] = useState<number>(1);
+
+  // 학적 정보 수정 모달 상태
+  const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
+  const [editGrade, setEditGrade] = useState<string>("");
+  const [editClassNum, setEditClassNum] = useState<string>("");
+  const [editStudentNumber, setEditStudentNumber] = useState<string>("");
+  const [editDepartment, setEditDepartment] = useState<string>("");
+  const [savingProfile, setSavingProfile] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (userProfile) {
+      setEditGrade(userProfile.grade ? String(userProfile.grade) : "");
+      setEditClassNum(userProfile.classNum ? String(userProfile.classNum) : "");
+      setEditStudentNumber(userProfile.studentNumber || "");
+      setEditDepartment(userProfile.department || "");
+    }
+  }, [userProfile]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      await updateUserProfile({
+        grade: editGrade ? parseInt(editGrade, 10) : undefined,
+        classNum: editClassNum ? parseInt(editClassNum, 10) : undefined,
+        studentNumber: editStudentNumber || undefined,
+        department: editDepartment || undefined,
+      });
+      setIsEditingProfile(false);
+    } catch (err: any) {
+      alert("프로필 저장 실패: " + err.message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.uid) {
@@ -180,15 +233,25 @@ export default function MyPage() {
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           {/* User Info */}
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 {displayName}
               </h1>
-              {isAdmin ? (
+              {role === "admin" ? (
                 <span className="text-xs bg-purple-500/30 text-purple-200 border border-purple-400/40 font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
                   <ShieldCheck className="w-3 h-3 text-purple-300" />
-                  <span>학생회 관리자</span>
+                  <span>최고 관리자</span>
+                </span>
+              ) : role === "council" ? (
+                <span className="text-xs bg-blue-500/30 text-blue-200 border border-blue-400/40 font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
+                  <ShieldCheck className="w-3 h-3 text-blue-300" />
+                  <span>학생회 임원</span>
+                </span>
+              ) : role === "teacher" ? (
+                <span className="text-xs bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
+                  <GraduationCap className="w-3 h-3 text-emerald-300" />
+                  <span>교직원</span>
                 </span>
               ) : (
                 <span className="text-xs bg-blue-500/20 text-blue-200 border border-blue-400/30 font-semibold px-2 py-0.5 rounded-full">
@@ -196,11 +259,39 @@ export default function MyPage() {
                 </span>
               )}
             </div>
+
             <p className="text-xs text-slate-300 font-mono">{user.email}</p>
+
+            {/* Student Info Details */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-300">
+              <span className="bg-white/10 px-2 py-0.5 rounded-md text-[11px]">
+                {userProfile?.grade ? `${userProfile.grade}학년 ` : "학년 미등록 "}
+                {userProfile?.classNum ? `${userProfile.classNum}반 ` : ""}
+                {userProfile?.studentNumber ? `(${userProfile.studentNumber})` : ""}
+                {userProfile?.department ? ` · ${userProfile.department}` : ""}
+              </span>
+              <button
+                onClick={() => setIsEditingProfile(true)}
+                className="text-[11px] text-blue-300 hover:text-white underline flex items-center space-x-1 transition-colors"
+              >
+                <Edit3 className="w-3 h-3" />
+                <span>학적 정보 {userProfile?.grade ? "수정" : "등록"}</span>
+              </button>
+            </div>
           </div>
 
-          {/* New Petition Action Button */}
-          <div className="flex items-center space-x-3">
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {isAdmin && (
+              <Link
+                href="/admin/users"
+                className="inline-flex items-center space-x-1.5 px-3.5 py-2.5 bg-purple-600/80 hover:bg-purple-600 text-white text-xs sm:text-sm font-bold rounded-xl border border-purple-400/30 transition-all shadow-md active:scale-95"
+              >
+                <Users className="w-4 h-4" />
+                <span>사용자 관리</span>
+              </Link>
+            )}
+
             <Link
               href="/petitions/new"
               className="inline-flex items-center space-x-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all active:scale-95"
@@ -210,6 +301,93 @@ export default function MyPage() {
             </Link>
           </div>
         </div>
+
+        {/* Profile Edit Modal / Form */}
+        {isEditingProfile && (
+          <div className="mt-6 p-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl animate-in fade-in duration-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-white flex items-center space-x-1.5">
+                <GraduationCap className="w-4 h-4 text-blue-300" />
+                <span>학적 및 프로필 정보 설정</span>
+              </h3>
+              <button
+                onClick={() => setIsEditingProfile(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[11px] text-slate-300 mb-1">학년</label>
+                <select
+                  value={editGrade}
+                  onChange={(e) => setEditGrade(e.target.value)}
+                  className="w-full bg-slate-800 text-white border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-400"
+                >
+                  <option value="">선택 안 함</option>
+                  <option value="1">1학년</option>
+                  <option value="2">2학년</option>
+                  <option value="3">3학년</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-slate-300 mb-1">반</label>
+                <input
+                  type="number"
+                  placeholder="예: 3"
+                  min="1"
+                  max="20"
+                  value={editClassNum}
+                  onChange={(e) => setEditClassNum(e.target.value)}
+                  className="w-full bg-slate-800 text-white border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-slate-300 mb-1">학번 / 번호</label>
+                <input
+                  type="text"
+                  placeholder="예: 10301 또는 15번"
+                  value={editStudentNumber}
+                  onChange={(e) => setEditStudentNumber(e.target.value)}
+                  className="w-full bg-slate-800 text-white border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-slate-300 mb-1">소속 / 부서</label>
+                <input
+                  type="text"
+                  placeholder="예: 학생회 기획부 / 방송부"
+                  value={editDepartment}
+                  onChange={(e) => setEditDepartment(e.target.value)}
+                  className="w-full bg-slate-800 text-white border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-400"
+                />
+              </div>
+
+              <div className="col-span-2 sm:col-span-4 flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="px-4 py-1.5 rounded-lg text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center space-x-1.5 transition-colors shadow-md"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{savingProfile ? "저장 중..." : "저장 완료"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 pt-6 border-t border-white/10">

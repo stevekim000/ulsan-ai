@@ -1,4 +1,4 @@
-export type UserRole = 'student' | 'admin';
+export type UserRole = 'student' | 'council' | 'teacher' | 'admin';
 
 export interface UserProfile {
   uid: string;
@@ -6,7 +6,13 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string;
   role: UserRole;
+  grade?: number;             // 학년 (1~3)
+  classNum?: number;          // 반 (1~15)
+  studentNumber?: string;     // 학번/번호
+  department?: string;        // 학생회 부서 또는 담당 과목
+  status?: 'active' | 'suspended'; // 계정 상태
   createdAt: any;
+  lastLoginAt?: any;
 }
 
 export type PetitionCategory = '시설/환경' | '학사/수업' | '학생복지' | '기타';

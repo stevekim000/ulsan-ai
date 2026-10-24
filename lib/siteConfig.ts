@@ -6,6 +6,11 @@ export const siteConfig = {
   description: "한 학교만의 주체적인 온라인 학생 청원 플랫폼입니다. 투명하고 신뢰성 있는 학생 자치를 지원합니다.",
   domain: process.env.NEXT_PUBLIC_SCHOOL_DOMAIN || "school.hs.kr",
   
+  // 관리자(학생회/담당교사) 이메일 목록
+  adminEmails: (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "520stevekim@gmail.com,admin@school.hs.kr")
+    .split(",")
+    .map((e) => e.trim().toLowerCase()),
+
   // 청원 운영 기준
   defaultGoalCount: 50,       // 공식 답변 요건 (50명 동의)
   petitionPeriodDays: 14,     // 청원 진행 기간 (14일)

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
-import { PenSquare, LogIn, LogOut, CheckCircle2, User as UserIcon, Search } from "lucide-react";
+import { PenSquare, LogIn, LogOut, CheckCircle2, User as UserIcon, Search, Users } from "lucide-react";
 
 import { siteConfig } from "@/lib/siteConfig";
 
@@ -45,6 +45,17 @@ export function Header() {
             <div className="w-20 h-9 bg-slate-100 rounded-lg animate-pulse" />
           ) : user ? (
             <div className="flex items-center space-x-2 sm:space-x-3 border-l border-slate-200 pl-2 sm:pl-3">
+              {isAdmin && (
+                <Link
+                  href="/admin/users"
+                  className="p-2 text-purple-700 hover:text-purple-800 hover:bg-purple-50 rounded-lg text-xs font-bold flex items-center space-x-1 transition-colors"
+                  title="사용자 및 권한 관리"
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="hidden lg:inline">사용자 관리</span>
+                </Link>
+              )}
+
               <Link
                 href="/mypage"
                 className="hidden md:flex flex-col text-right p-1.5 rounded-lg hover:bg-slate-100 transition-colors group/user"
