@@ -69,6 +69,10 @@ export interface AIEstimateResult {
   matchedReason?: string;             // 핵심 판정 이유
   reasoningSteps?: InferenceStep[];   // 어째서 그런 결과를 낸건지 단계별 추론 이유
   terrainAnalysis?: TerrainAnalysis;  // 정밀 지형 분석 결과
+  isInternetSearchUsed?: boolean;     // 키워드 미감지로 인터넷 정보 수집이 가동되었는지 여부
+  internetSearchQueries?: string[];   // 인터넷 정보 수집에 사용된 검색 쿼리 목록
+  internetFindings?: string;          // 인터넷에서 수집된 정보 및 위치 연계 분석 내용 요약
+  collectedWebSources?: Array<{ title: string; snippet: string; url?: string }>; // 수집된 웹 출처 및 내용
   isGeminiPowered?: boolean;
   modelUsed?: string;
 }

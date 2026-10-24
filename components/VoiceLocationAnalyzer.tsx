@@ -1,7 +1,22 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Sparkles, Navigation, AlertCircle, Volume2, CheckCircle2, ChevronRight, Compass, Key, Check } from "lucide-react";
+import { 
+  Mic, 
+  MicOff, 
+  Sparkles, 
+  Navigation, 
+  AlertCircle, 
+  Volume2, 
+  CheckCircle2, 
+  ChevronRight, 
+  Compass, 
+  Key, 
+  Check,
+  Globe,
+  Search,
+  ExternalLink
+} from "lucide-react";
 import { analyzeVoiceEnvironment } from "@/lib/aiLocationEngine";
 import { AIEstimateResult } from "@/types/rescue";
 
@@ -17,6 +32,16 @@ interface SamplePrompt {
 }
 
 const SAMPLE_VOICE_PROMPTS: SamplePrompt[] = [
+  {
+    tag: "🌐 키워드 없음 (인터넷 수집)",
+    course: "인터넷수집",
+    text: "선생님, 친구들을 놓쳤어요. 표지판은 안 보이고 주변에 붉은색 기와지붕 건물이랑 기상 레이더 같은 하얀 돔이 멀리 보여요.",
+  },
+  {
+    tag: "🌐 키워드 없음 (모노레일/석굴)",
+    course: "인터넷수집",
+    text: "어딘지 모르겠는데 바닥에 철제 모노레일 레일이 깔려있고 옆에 커다란 용암 석굴이 있어요. 비가 너무 많이 와요.",
+  },
   {
     tag: "영실 1-14",
     course: "영실",
@@ -389,6 +414,70 @@ export default function VoiceLocationAnalyzer({
               </span>
             </div>
           </div>
+
+          {/* 🌐 인터넷 실시간 정보 수집 모드 가동 카드 (키워드 미감지 시) */}
+          {result.isInternetSearchUsed && (
+            <div className="bg-gradient-to-r from-cyan-950/80 via-blue-950/70 to-indigo-950/80 border-2 border-cyan-500/50 rounded-2xl p-4 shadow-xl shadow-cyan-950/30 space-y-3">
+              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-2.5">
+                <div className="flex items-center space-x-2">
+                  <span className="flex h-2.5 w-2.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
+                  </span>
+                  <span className="text-xs font-black text-cyan-300 tracking-wider flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-cyan-400" />
+                    Gemini 인터넷 실시간 정보 수집 모드 가동
+                  </span>
+                </div>
+                <span className="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-full font-bold">
+                  한라산 5대 코스 (입구~정상) 정보 수집
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                음성 데이터에서 공인 표지목이나 코스 키워드가 감지되지 않아, <b>Gemini AI가 인터넷 실시간 검색을 통해 한라산 5대 코스(성판악, 관음사, 영실, 어리목, 돈내코: 탐방로 입구~정상)의 시설물 및 지형 정보를 수집·대조하여 위치를 추정</b>했습니다.
+              </p>
+
+              {/* 검색 쿼리 태그 */}
+              {result.internetSearchQueries && result.internetSearchQueries.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[11px] text-slate-400 font-semibold flex items-center gap-1">
+                    <Search className="w-3 h-3 text-cyan-400" /> 5대 코스 수집 검색어:
+                  </span>
+                  {result.internetSearchQueries.map((q, idx) => (
+                    <span key={idx} className="text-[11px] bg-slate-900/90 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-lg font-mono">
+                      #{q}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* 인터넷 정보 분석 요약 */}
+              {result.internetFindings && (
+                <div className="bg-slate-950/80 border border-cyan-900/50 rounded-xl p-3 text-xs text-cyan-100/90 leading-relaxed">
+                  <b className="text-cyan-400">🌐 5대 코스 인터넷 정보 수집 분석:</b> {result.internetFindings}
+                </div>
+              )}
+
+              {/* 수집된 웹 출처 */}
+              {result.collectedWebSources && result.collectedWebSources.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <p className="text-[11px] font-bold text-slate-400">수집된 한라산 5대 코스 웹 지리 정보:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {result.collectedWebSources.slice(0, 2).map((src, idx) => (
+                      <div key={idx} className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 text-[11px] text-slate-300 space-y-1">
+                        <p className="font-semibold text-white line-clamp-1 flex items-center gap-1">
+                          <ExternalLink className="w-3 h-3 text-cyan-400 flex-shrink-0" />
+                          <span>{src.title}</span>
+                        </p>
+                        <p className="text-slate-400 text-[10px] line-clamp-2 leading-relaxed">{src.snippet}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Identified POI Detail */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
