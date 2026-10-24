@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
-import { PenSquare, LogIn, LogOut, CheckCircle2, User as UserIcon, Search, Users } from "lucide-react";
+import { PenSquare, LogIn, LogOut, CheckCircle2, User as UserIcon, Users } from "lucide-react";
 
 import { siteConfig } from "@/lib/siteConfig";
 
@@ -93,26 +93,13 @@ export function Header() {
               </button>
             </div>
           ) : (
-            <>
-              <a
-                href="https://script.google.com/a/macros/usja.hs.kr/s/AKfycbylWQxH6vpHkCZ8lcdP19zlSA7hVPxswq7F_c5oZJeHfQ2_RuvB1npng-YpmmQOiGtHwQ/exec"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 hover:text-blue-600 text-slate-700 text-sm font-medium transition-colors"
-                title="학번 찾기 (새 창으로 이동)"
-              >
-                <Search className="w-4 h-4 text-slate-500" />
-                <span className="hidden sm:inline">학번 찾기</span>
-              </a>
-
-              <button
-                onClick={loginWithGoogle}
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors"
-              >
-                <LogIn className="w-4 h-4 text-blue-600" />
-                <span>로그인</span>
-              </button>
-            </>
+            <button
+              onClick={loginWithGoogle}
+              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors"
+            >
+              <LogIn className="w-4 h-4 text-blue-600" />
+              <span>로그인</span>
+            </button>
           )}
         </div>
       </div>
