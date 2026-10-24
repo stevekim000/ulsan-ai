@@ -204,3 +204,49 @@ export function getOfflineGpsPoints(): LocationPoint[] {
     return [];
   }
 }
+
+// 교사 -> 학생 무전 지침 메시지
+export interface TeacherBroadcastMessage {
+  id: string;
+  sender: string;
+  message: string;
+  timestamp: number;
+}
+
+const STORAGE_KEY_TEACHER_MSG = "sanwoolim_teacher_msgs_v1";
+
+export function getTeacherMessages(): TeacherBroadcastMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TEACHER_MSG);
+    return raw ? JSON.parse(raw) : [
+      {
+        id: "msg-init-1",
+        sender: "인솔교사 김선생",
+        message: "민준아, 119 구조대와 함께 가고 있다. 절대로 이동하지 말고 체온 유지하면서 대기해라!",
+        timestamp: Date.now() - 1000 * 60 * 2,
+      }
+    ];
+  } catch {
+    return [];
+  }
+}
+
+export function addTeacherMessage(msgText: string, sender: string = "인솔교사 김선생"): TeacherBroadcastMessage {
+  const newMsg: TeacherBroadcastMessage = {
+    id: "msg-" + Date.now(),
+    sender,
+    message: msgText,
+    timestamp: Date.now(),
+  };
+  if (typeof window !== "undefined") {
+    try {
+      const list = getTeacherMessages();
+      const updated = [newMsg, ...list];
+      localStorage.setItem(STORAGE_KEY_TEACHER_MSG, JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  return newMsg;
+}

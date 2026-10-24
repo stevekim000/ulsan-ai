@@ -1,22 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   Mountain, 
   Radio, 
   ShieldCheck, 
   AlertOctagon, 
-  HeartHandshake, 
-  MapPin, 
-  Sparkles,
-  RefreshCw,
-  Compass,
-  PhoneCall,
-  UserCheck
+  HeartHandshake
 } from "lucide-react";
 import StudentSosView from "@/components/StudentSosView";
 import TeacherCommandView from "@/components/TeacherCommandView";
 import ParentTrustReport from "@/components/ParentTrustReport";
+import NotificationToast, { ToastNotification } from "@/components/NotificationToast";
 import { Student, RescueTimelineEvent, AIEstimateResult, NetworkStatus } from "@/types/rescue";
 import { getStoredStudents, getStoredTimeline, saveStudents } from "@/lib/storage";
 import { DEFAULT_HIKING_TRAIL } from "@/lib/mountainData";
@@ -29,10 +24,28 @@ export default function HomePage() {
   const [networkStatus, setNetworkStatus] = useState<NetworkStatus>("unstable");
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
+  // 알림 토스트 상태
+  const [notifications, setNotifications] = useState<ToastNotification[]>([]);
+
   useEffect(() => {
     setIsMounted(true);
     setStudents(getStoredStudents());
     setTimeline(getStoredTimeline());
+  }, []);
+
+  // 알림 추가
+  const addNotification = useCallback((notif: Omit<ToastNotification, "id">) => {
+    const newNotif: ToastNotification = {
+      ...notif,
+      id: "notif-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6),
+      timestamp: notif.timestamp || Date.now(),
+    };
+    setNotifications((prev) => [...prev, newNotif]);
+  }, []);
+
+  // 알림 제거
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
   // 학생 음성 AI 분석 완료 시 상태 갱신
@@ -70,6 +83,13 @@ export default function HomePage() {
       actor: "산울림 AI 엔진",
     };
     setTimeline((prev) => [newEvent, ...prev]);
+
+    // 실시간 토스트 알림 발송
+    addNotification({
+      type: "ai_analysis",
+      title: "AI 음성 위치 특정 성공",
+      message: `[${result.matchedPOI?.name}] 반경 ${result.radiusMeters}m 이내로 조난 학생 위치 특정 완료!`,
+    });
   };
 
   if (!isMounted) {
@@ -84,6 +104,12 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-slate-950 text-slate-100">
+      {/* Notification Toast System */}
+      <NotificationToast
+        notifications={notifications}
+        onDismiss={dismissNotification}
+      />
+
       {/* Top Header */}
       <header className="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-slate-800">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -100,7 +126,7 @@ export default function HomePage() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                수학여행 산악 조난 긴급 구조 & 안심 관제 플랫폼
+                수학여행 산악 조난 긴급 구조 &amp; 안심 관제 플랫폼
               </p>
             </div>
           </div>
@@ -147,7 +173,8 @@ export default function HomePage() {
       </header>
 
       {/* Main Content Body */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 space-y-6">
+
         {activeTab === "student" && (
           <StudentSosView
             onAiAnalysisDone={handleAiAnalysisDone}
@@ -160,6 +187,7 @@ export default function HomePage() {
           <TeacherCommandView
             students={students}
             aiEstimate={aiEstimate}
+            onNotification={addNotification}
           />
         )}
 
@@ -176,7 +204,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>© 2026 산울림 (SanWoolim) AI - 울산 AI 해커톤 출품작</p>
           <p className="text-[11px] text-slate-400">
-            공모 주제: <b>존중과 배려로 함께 안심하는 학교 & 소통과 신뢰 구축</b>
+            공모 주제: <b>존중과 배려로 함께 안심하는 학교 &amp; 소통과 신뢰 구축</b>
           </p>
         </div>
       </footer>

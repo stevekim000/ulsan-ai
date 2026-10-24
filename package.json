@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.447.0",

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Sparkles, Navigation, AlertCircle, Volume2, CheckCircle2, ChevronRight, Compass } from "lucide-react";
+import { Mic, MicOff, Sparkles, Navigation, AlertCircle, Volume2, CheckCircle2, ChevronRight, Compass, Key, Check } from "lucide-react";
 import { analyzeVoiceEnvironment } from "@/lib/aiLocationEngine";
 import { AIEstimateResult } from "@/types/rescue";
 
@@ -26,9 +26,20 @@ export default function VoiceLocationAnalyzer({
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [result, setResult] = useState<AIEstimateResult | null>(null);
   const [supported, setSupported] = useState<boolean>(true);
+  const [apiKey, setApiKey] = useState<string>("");
+  const [showKeyInput, setShowKeyInput] = useState<boolean>(false);
+  const [keySaved, setKeySaved] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
+    // 로컬 스토리지에 저장된 Gemini API 키 불러오기
+    if (typeof window !== "undefined") {
+      const savedKey = localStorage.getItem("sanwoolim_gemini_api_key");
+      if (savedKey) {
+        setApiKey(savedKey);
+      }
+    }
+
     // Web Speech API 지원 확인
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
@@ -70,6 +81,15 @@ export default function VoiceLocationAnalyzer({
     };
   }, []);
 
+  const handleSaveApiKey = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sanwoolim_gemini_api_key", apiKey.trim());
+      setKeySaved(true);
+      setTimeout(() => setKeySaved(false), 2000);
+      setShowKeyInput(false);
+    }
+  };
+
   const toggleRecording = () => {
     if (!recognitionRef.current) {
       alert("브라우저에서 마이크 음성 인식을 지원하지 않습니다. 아래 예시 문장을 클릭해 테스트해 보세요!");
@@ -99,15 +119,36 @@ export default function VoiceLocationAnalyzer({
     runAIAnalysis(sample);
   };
 
-  const runAIAnalysis = (textToAnalyze: string) => {
+  const runAIAnalysis = async (textToAnalyze: string) => {
     setIsAnalyzing(true);
-    // AI 추론 시뮬레이션 지연 (0.7초)
-    setTimeout(() => {
-      const res = analyzeVoiceEnvironment(textToAnalyze, currentAltitude);
-      setResult(res);
+    try {
+      // 1. Google Gemini 1.5 Flash API 라우트 호출 시도
+      const res = await fetch("/api/analyze-voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          voiceTranscript: textToAnalyze,
+          currentAltitude,
+          userApiKey: apiKey.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("API call failed");
+      }
+
+      const data: AIEstimateResult = await res.json();
+      setResult(data);
       setIsAnalyzing(false);
-      onAnalysisComplete(res);
-    }, 700);
+      onAnalysisComplete(data);
+    } catch (err) {
+      console.warn("Falling back to local NLP engine:", err);
+      // 2. 네트워크 장애/두절 시 즉시 온디바이스 로컬 AI로 안전하게 Fallback
+      const fallbackResult = analyzeVoiceEnvironment(textToAnalyze, currentAltitude);
+      setResult(fallbackResult);
+      setIsAnalyzing(false);
+      onAnalysisComplete(fallbackResult);
+    }
   };
 
   return (
@@ -130,7 +171,54 @@ export default function VoiceLocationAnalyzer({
             </p>
           </div>
         </div>
+
+        {/* Gemini API Key Toggle Button */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowKeyInput(!showKeyInput)}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+              apiKey
+                ? "bg-indigo-600/20 text-indigo-300 border-indigo-500/40"
+                : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+            }`}
+            title="Google Gemini API 키 설정"
+          >
+            <Key className="w-3.5 h-3.5 text-indigo-400" />
+            <span>{apiKey ? "Gemini API 연동됨 ✨" : "Gemini API 키"}</span>
+          </button>
+        </div>
       </div>
+
+      {/* Gemini API Key Collapsible Input Box */}
+      {showKeyInput && (
+        <div className="bg-slate-950 p-4 rounded-2xl border border-indigo-500/30 space-y-2 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-indigo-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Google Gemini 1.5 Flash API Key</span>
+            </span>
+            <span className="text-[10px] text-slate-400">
+              *입력 시 실제 Gemini 모델이 분석하며, 미입력 시 오프라인 로컬 엔진이 동작합니다.
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="AQ... 또는 AIza... 형식의 Gemini API 키를 입력하세요"
+              className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+            />
+            <button
+              onClick={handleSaveApiKey}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl flex items-center space-x-1 transition-all shrink-0 shadow-lg shadow-indigo-600/20"
+            >
+              {keySaved ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Check className="w-3.5 h-3.5" />}
+              <span>{keySaved ? "저장 완료!" : "적용"}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Mic Recording Area */}
       <div className="flex flex-col items-center justify-center p-6 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-4">
@@ -231,8 +319,20 @@ export default function VoiceLocationAnalyzer({
                 <Navigation className="w-4 h-4" />
               </span>
               <div>
-                <p className="text-xs font-bold text-white">AI 위치 특정 완료</p>
-                <p className="text-[11px] text-blue-300 font-mono">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold text-white">AI 위치 특정 완료</p>
+                  {result.isGeminiPowered ? (
+                    <span className="text-[10px] bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-sm shadow-indigo-500/20">
+                      <Sparkles className="w-2.5 h-2.5 text-indigo-400" />
+                      <span>{result.modelUsed || "Google Gemini 1.5 Flash"}</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-full font-medium">
+                      {result.modelUsed || "온디바이스 로컬 AI (오프라인 모드)"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-blue-300 font-mono mt-0.5">
                   추정 좌표: {result.estimatedLat.toFixed(4)}, {result.estimatedLng.toFixed(4)}
                 </p>
               </div>

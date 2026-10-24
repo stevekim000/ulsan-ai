@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { AlertOctagon, ShieldAlert, HeartHandshake, PhoneCall, CheckCircle, Info, Sparkles, Navigation } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { AlertOctagon, ShieldAlert, HeartHandshake, PhoneCall, CheckCircle, Info, Sparkles, Navigation, Radio, Volume2 } from "lucide-react";
 import OfflineCompassBar from "@/components/OfflineCompassBar";
 import VoiceLocationAnalyzer from "@/components/VoiceLocationAnalyzer";
 import SirenSoundPlayer from "@/components/SirenSoundPlayer";
 import { NetworkStatus, LocationPoint, AIEstimateResult } from "@/types/rescue";
-import { addTimelineEvent } from "@/lib/storage";
+import { addTimelineEvent, getTeacherMessages, TeacherBroadcastMessage } from "@/lib/storage";
 
 interface StudentSosViewProps {
   onAiAnalysisDone: (result: AIEstimateResult) => void;
@@ -22,6 +22,15 @@ export default function StudentSosView({
   const [isSosActive, setIsSosActive] = useState<boolean>(true);
   const [sosSentTime, setSosSentTime] = useState<string>("방금 전 (13:42:05)");
   const [batterySaver, setBatterySaver] = useState<boolean>(true);
+  const [teacherMsgs, setTeacherMsgs] = useState<TeacherBroadcastMessage[]>([]);
+
+  useEffect(() => {
+    setTeacherMsgs(getTeacherMessages());
+    const interval = setInterval(() => {
+      setTeacherMsgs(getTeacherMessages());
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const mockCurrentLocation: LocationPoint = {
     lat: 33.3605,
@@ -106,6 +115,29 @@ export default function StudentSosView({
           </div>
         </div>
       </div>
+
+      {/* Teacher Directive Broadcast Received Banner */}
+      {teacherMsgs.length > 0 && (
+        <div className="bg-gradient-to-r from-indigo-950/90 to-blue-950/80 border border-indigo-500/50 rounded-2xl p-4 shadow-lg flex items-start space-x-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md animate-pulse">
+            <Radio className="w-5 h-5" />
+          </div>
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-indigo-300 flex items-center gap-1.5">
+                <span>📡 {teacherMsgs[0].sender}의 긴급 무전 지침</span>
+                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded font-mono">
+                  {new Date(teacherMsgs[0].timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </span>
+              <span className="text-[10px] text-emerald-400 font-bold">실시간 수신</span>
+            </div>
+            <p className="text-xs font-bold text-white bg-black/30 p-2.5 rounded-xl border border-indigo-500/20 leading-relaxed">
+              "{teacherMsgs[0].message}"
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Requirement 1: Offline Compass & GPS Sensor Bar */}
       <div className="space-y-1.5">

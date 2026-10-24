@@ -38,6 +38,11 @@ export default function MountainMap({
         document.head.appendChild(link);
       }
 
+      // Leaflet 컨테이너 재초기화 에러 방지
+      if ((mapContainerRef.current as any)._leaflet_id) {
+        (mapContainerRef.current as any)._leaflet_id = null;
+      }
+
       // 한라산 중심 (진달래밭 대피소 부근)
       const map = L.map(mapContainerRef.current, {
         center: [33.365, 126.565],
@@ -141,7 +146,71 @@ export default function MountainMap({
       `);
     });
 
-    // 3. 학생 마커 표시 (조난 학생은 붉은 펄스 효과)
+    // 3. 학생 궤적(locationHistory) 표시 (조난 학생의 이동 경로를 점선으로 시각화)
+    students.forEach((std) => {
+      const isEmergency = std.status === "emergency";
+
+      // 궤적 폴리라인 + 포인트 마커 (이동 기록이 있는 학생만)
+      if (std.locationHistory && std.locationHistory.length > 1) {
+        const historyCoords = std.locationHistory.map((p) => [p.lat, p.lng]);
+
+        // 이동 궤적 점선
+        L.polyline(historyCoords as [number, number][], {
+          color: isEmergency ? "#ef4444" : "#10b981",
+          weight: 3,
+          dashArray: "8, 6",
+          opacity: 0.7,
+        }).addTo(layerGroupRef.current);
+
+        // 각 포인트에 시간/고도 마커 추가
+        std.locationHistory.forEach((point, idx) => {
+          const isLast = idx === std.locationHistory.length - 1;
+          const timeStr = new Date(point.timestamp).toLocaleTimeString("ko-KR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+
+          const dotHtml = `
+            <div style="
+              width: ${isLast ? "14px" : "10px"};
+              height: ${isLast ? "14px" : "10px"};
+              border-radius: 50%;
+              background-color: ${isEmergency ? (isLast ? "#ef4444" : "#f87171") : "#10b981"};
+              border: 2px solid white;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              ${isLast && isEmergency ? "animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;" : ""}
+            "></div>
+          `;
+
+          const dotIcon = L.divIcon({
+            className: "custom-trail-dot",
+            html: dotHtml,
+            iconSize: [isLast ? 14 : 10, isLast ? 14 : 10],
+            iconAnchor: [isLast ? 7 : 5, isLast ? 7 : 5],
+          });
+
+          const dotMarker = L.marker([point.lat, point.lng], { icon: dotIcon }).addTo(
+            layerGroupRef.current
+          );
+
+          dotMarker.bindPopup(`
+            <div style="padding: 4px; font-family: sans-serif; min-width: 140px;">
+              <p style="margin: 0; font-size: 12px; font-weight: bold; color: ${isEmergency ? "#dc2626" : "#059669"};">
+                📍 궤적 포인트 #${idx + 1}
+              </p>
+              <p style="margin: 2px 0 0; font-size: 11px; color: #475569;">
+                시각: <b>${timeStr}</b>
+              </p>
+              <p style="margin: 2px 0 0; font-size: 11px; color: #64748b;">
+                해발: <b>${point.altitude || "측정중"}m</b>
+              </p>
+            </div>
+          `);
+        });
+      }
+    });
+
+    // 4. 학생 마커 표시 (조난 학생은 붉은 펄스 효과)
     students.forEach((std) => {
       const isEmergency = std.status === "emergency";
       const lat = std.lastLocation.lat;
@@ -203,6 +272,11 @@ export default function MountainMap({
           <p style="margin: 2px 0 0; font-size: 11px; color: #64748b;">
             측정 고도: <b>${std.lastLocation.altitude || "측정중"}m</b>
           </p>
+          ${std.locationHistory && std.locationHistory.length > 0 ? `
+            <p style="margin: 2px 0 0; font-size: 10px; color: #94a3b8;">
+              궤적 기록: ${std.locationHistory.length}개 포인트
+            </p>
+          ` : ""}
         </div>
       `);
     });
@@ -258,6 +332,10 @@ export default function MountainMap({
         <div className="flex items-center space-x-1">
           <span className="w-3.5 h-2.5 border border-red-500 border-dashed bg-red-500/30 inline-block rounded"></span>
           <span>AI 특정 수색 반경</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <span className="w-5 h-0.5 border-t-2 border-dashed border-red-400 inline-block"></span>
+          <span>조난 이동 궤적</span>
         </div>
       </div>
     </div>

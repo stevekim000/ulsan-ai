@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   ShieldAlert, 
   Users, 
@@ -17,33 +17,78 @@ import {
 } from "lucide-react";
 import MountainMap from "@/components/MountainMap";
 import { Student, AIEstimateResult } from "@/types/rescue";
-import { addTimelineEvent } from "@/lib/storage";
+import { addTimelineEvent, addTeacherMessage, getTeacherMessages, TeacherBroadcastMessage } from "@/lib/storage";
 
 interface TeacherCommandViewProps {
   students: Student[];
   aiEstimate?: AIEstimateResult | null;
+  onNotification?: (notif: {
+    type: "alert" | "ai_analysis" | "rescue_team" | "resolved" | "info";
+    title: string;
+    message: string;
+  }) => void;
 }
 
 export default function TeacherCommandView({
   students,
   aiEstimate,
+  onNotification,
 }: TeacherCommandViewProps) {
   const [selectedStudent, setSelectedStudent] = useState<Student>(students[0]);
   const [dispatch119Done, setDispatch119Done] = useState<boolean>(false);
+  const [customMsg, setCustomMsg] = useState<string>("");
+  const [sentMessages, setSentMessages] = useState<TeacherBroadcastMessage[]>([]);
+
+  useEffect(() => {
+    setSentMessages(getTeacherMessages());
+  }, []);
 
   const emergencyStudents = students.filter((s) => s.status === "emergency");
   const safeStudents = students.filter((s) => s.status === "safe");
 
   const handleDispatch119 = () => {
     setDispatch119Done(true);
-    addTimelineEvent({
+    const event = {
       timestamp: Date.now(),
       title: "인솔교사, 119 산악구조대에 AI 추정 정밀 좌표 긴급 전송",
       content: `인솔교사가 119 상황실로 김민준 학생의 AI 위치 추정 데이터(진달래밭 대피소 반경 35m) 및 음성 녹취록을 전달했습니다. 구조팀 출동 개시.`,
-      type: "rescue_team",
+      type: "rescue_team" as const,
+      actor: "인솔교사 김선생",
+    };
+    addTimelineEvent(event);
+
+    if (onNotification) {
+      onNotification({
+        type: "rescue_team",
+        title: "119 산악구조대 긴급 출동 접수",
+        message: "김민준 학생의 AI 정밀 추정 좌표 및 녹취록이 119 상황실에 전송되어 구조팀이 현장으로 긴급 출동했습니다.",
+      });
+    }
+  };
+
+  const handleSendTeacherMessage = (textToSend?: string) => {
+    const text = (textToSend || customMsg).trim();
+    if (!text) return;
+
+    const newMsg = addTeacherMessage(text, "인솔교사 김선생");
+    setSentMessages((prev) => [newMsg, ...prev]);
+    setCustomMsg("");
+
+    addTimelineEvent({
+      timestamp: Date.now(),
+      title: "인솔교사 안심 무전 발송",
+      content: `인솔교사가 조난 학생에게 긴급 안전 지침을 전달했습니다: "${text}"`,
+      type: "teacher_action",
       actor: "인솔교사 김선생",
     });
-    alert("119 한라산 산악구조대에 AI 정밀 위치 및 음성 녹취록이 성공적으로 전송되었습니다!");
+
+    if (onNotification) {
+      onNotification({
+        type: "info",
+        title: "조난 학생에게 무전 발송 완료",
+        message: `"${text}" 지침이 학생 단말기에 즉시 전달되었습니다.`,
+      });
+    }
   };
 
   return (
@@ -181,6 +226,77 @@ export default function TeacherCommandView({
                 👉 인솔교사 조치 가이드: 진달래밭 대피소 상주 인원에게 무전 연락 후, 대피소 앞 데크 쉼터 쪽으로 이동 지시
               </p>
             </div>
+          </div>
+
+          {/* Teacher Directive & Reassurance Broadcast Panel */}
+          <div className="bg-slate-950/80 border border-indigo-500/30 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="p-1 rounded bg-indigo-500/20 text-indigo-400">
+                  <Radio className="w-3.5 h-3.5" />
+                </span>
+                <span className="text-xs font-bold text-white">
+                  조난 학생 단말기 비상 무전 지침 발송 (인터넷 두절 시에도 패킷 축적 수신)
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400">
+                수신 대상: {emergencyStudents[0]?.name || "김민준 학생"}
+              </span>
+            </div>
+
+            {/* Quick Preset Buttons */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                "민준아, 119 구조대와 함께 가고 있다. 절대로 이동하지 말고 체온 유지해라!",
+                "바람을 피해 비닐이나 돗자리를 깔고 쉼터 쪽에 대기하렴.",
+                "10분마다 호루라기를 3번씩 길게 불어 구조 신호를 유지해줘.",
+              ].map((preset, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSendTeacherMessage(preset)}
+                  className="text-[11px] bg-slate-900 hover:bg-indigo-950/70 border border-slate-700/80 hover:border-indigo-500/50 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg transition-all text-left"
+                >
+                  💬 {preset}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customMsg}
+                onChange={(e) => setCustomMsg(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSendTeacherMessage()}
+                placeholder="직접 무전 지침을 입력하세요 (예: 계곡으로 가지 마라, 빨간 재킷을 흔들어라 등)"
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                onClick={() => handleSendTeacherMessage()}
+                disabled={!customMsg.trim()}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs rounded-xl flex items-center space-x-1 transition-all shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>무전 발송</span>
+              </button>
+            </div>
+
+            {/* Recent Sent Log */}
+            {sentMessages.length > 0 && (
+              <div className="space-y-1 pt-1 border-t border-slate-800/60">
+                <span className="text-[10px] text-slate-400 block font-medium">최근 학생에게 전달된 무전 지침:</span>
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {sentMessages.slice(0, 3).map((m) => (
+                    <div key={m.id} className="text-[11px] text-indigo-200 bg-indigo-950/40 border border-indigo-900/50 px-2.5 py-1 rounded-lg flex items-center justify-between gap-2">
+                      <span className="truncate">📢 "{m.message}"</span>
+                      <span className="text-[10px] text-slate-400 shrink-0 font-mono">
+                        {new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

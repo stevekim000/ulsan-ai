@@ -50,6 +50,8 @@ export interface AIEstimateResult {
   urgencyLevel: 'high' | 'critical' | 'moderate';
   aiRecommendations: string[];
   timelineExplanation: string;
+  isGeminiPowered?: boolean;
+  modelUsed?: string;
 }
 
 export interface RescueTimelineEvent {
