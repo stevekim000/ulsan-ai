@@ -498,14 +498,6 @@ export default function VoiceLocationAnalyzer({
                           )}
                         </div>
 
-                        <div className="pt-2 mt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
-                          <span className="text-cyan-400/80 font-mono truncate max-w-[200px]">
-                            {(linkItem.url || "").replace(/^https?:\/\//, '').split('/')[0]}
-                          </span>
-                          <span className="text-slate-400 font-semibold group-hover:text-white transition-colors flex items-center gap-0.5">
-                            출처 열기 ↗
-                          </span>
-                        </div>
                       </a>
                     ))}
                   </div>
