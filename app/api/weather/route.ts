@@ -20,64 +20,111 @@ function parseKmaWeatherStatus(pty: number, sky: number): { text: string; icon: 
 }
 
 /**
- * 대한민국 기상청 단기예보 발표시각 및 기준일자 계산기
- * - 단기예보 발표시각: 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00 (1일 8회)
- * - 각 발표 시각 10분 이후(예: 05:10)부터 API 호출 가능
+ * 대한민국 표준시 (KST, UTC+9, Asia/Seoul) 날짜/시간 객체 추출 함수
  */
-function getKmaBaseDateTime(): { baseDate: string; baseTime: string } {
-  const now = new Date();
-  const baseHours = [2, 5, 8, 11, 14, 17, 20, 23];
+function getKSTDate(date = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  yearStr: string;
+  monthStr: string;
+  dayStr: string;
+  hourStr: string;
+  minuteStr: string;
+  dateKey: string; // YYYYMMDD
+  timeKey: string; // HH00
+  isoStringKST: string;
+} {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value || "00";
 
-  let year = now.getFullYear();
-  let month = now.getMonth() + 1;
-  let day = now.getDate();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
+  const year = parseInt(getPart("year"), 10);
+  const month = parseInt(getPart("month"), 10);
+  const day = parseInt(getPart("day"), 10);
+  let hour = parseInt(getPart("hour"), 10);
+  if (hour === 24) hour = 0;
+  const minute = parseInt(getPart("minute"), 10);
+  const second = parseInt(getPart("second"), 10);
+
+  const yearStr = String(year);
+  const monthStr = String(month).padStart(2, "0");
+  const dayStr = String(day).padStart(2, "0");
+  const hourStr = String(hour).padStart(2, "0");
+  const minuteStr = String(minute).padStart(2, "0");
+
+  const dateKey = `${yearStr}${monthStr}${dayStr}`;
+  const timeKey = `${hourStr}00`;
+  const isoStringKST = `${yearStr}-${monthStr}-${dayStr}T${hourStr}:${minuteStr}:00+09:00`;
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    yearStr,
+    monthStr,
+    dayStr,
+    hourStr,
+    minuteStr,
+    dateKey,
+    timeKey,
+    isoStringKST,
+  };
+}
+
+/**
+ * 대한민국 기상청 단기예보 발표시각 및 기준일자 계산기 (KST 기준)
+ * - 단기예보 발표시각: 02:00, 05:00, 08:00, 11:00, 14:00, 17:00, 20:00, 23:00 (1일 8회)
+ * - 각 발표 시각 15분 이후(예: 05:15)부터 API 호출 가능
+ */
+function getKmaBaseDateTime(): { baseDate: string; baseTime: string; kst: ReturnType<typeof getKSTDate> } {
+  const kst = getKSTDate();
+  const baseHours = [2, 5, 8, 11, 14, 17, 20, 23];
 
   let selectedHour = -1;
   for (let i = baseHours.length - 1; i >= 0; i--) {
-    if (hour > baseHours[i] || (hour === baseHours[i] && minute >= 15)) {
+    if (kst.hour > baseHours[i] || (kst.hour === baseHours[i] && kst.minute >= 15)) {
       selectedHour = baseHours[i];
       break;
     }
   }
 
-  // 자정 이후 02:15 전이면 전날 23:00 기준 사용
+  let baseDate = kst.dateKey;
+  // 자정 이후 02:15 전이면 KST 기준 전날 23:00 사용
   if (selectedHour === -1) {
     selectedHour = 23;
-    const yesterday = new Date(now.getTime() - 86400000);
-    year = yesterday.getFullYear();
-    month = yesterday.getMonth() + 1;
-    day = yesterday.getDate();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const prevKst = getKSTDate(yesterday);
+    baseDate = prevKst.dateKey;
   }
 
-  const baseDate = `${year}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`;
   const baseTime = `${String(selectedHour).padStart(2, "0")}00`;
-
-  return { baseDate, baseTime };
-}
-
-function getDayLabel(isoDate: string, index: number): string {
-  if (index === 0) return "오늘";
-  if (index === 1) return "내일";
-  if (index === 2) return "모레";
-  try {
-    const d = new Date(isoDate);
-    const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-    return `${d.getMonth() + 1}/${d.getDate()} (${dayNames[d.getDay()]})`;
-  } catch {
-    return isoDate;
-  }
+  return { baseDate, baseTime, kst };
 }
 
 /**
- * 대한민국 기상청(KMA) 공식 격자 규격 기반 한라산 표준 예보 데이터
+ * 대한민국 기상청(KMA) 공식 격자 규격 기반 한라산 표준 예보 데이터 (KST 대한민국 표준시 기준)
  * (한라산 국립공원 진달래밭/성판악 관측 격자: nx=53, ny=35)
  */
-function getKmaHallasanModelForecast(now: Date): MountainWeatherResponse {
-  const currentHour = now.getHours();
+function getKmaHallasanModelForecast(kst = getKSTDate()): MountainWeatherResponse {
+  const currentHour = kst.hour;
 
-  // 향후 12시간 시간대별 예보 생성
+  // 향후 12시간 시간대별 예보 생성 (대한민국 표준시 기준)
   const hourly: HourlyForecastItem[] = Array.from({ length: 12 }).map((_, i) => {
     const targetHour = (currentHour + i) % 24;
     const isRain = i < 5; // 오후 한라산 고지대 강수대 통과
@@ -88,9 +135,12 @@ function getKmaHallasanModelForecast(now: Date): MountainWeatherResponse {
     const sky = isRain ? 4 : 3;
     const parsed = parseKmaWeatherStatus(pty, sky);
 
+    const stepTarget = getKSTDate(new Date(Date.now() + i * 3600000));
+    const isoTime = `${stepTarget.yearStr}-${stepTarget.monthStr}-${stepTarget.dayStr}T${String(targetHour).padStart(2, "0")}:00:00+09:00`;
+
     return {
-      timeStr: i === 0 ? "지금" : `${targetHour}:00`,
-      isoTime: new Date(now.getTime() + i * 3600000).toISOString(),
+      timeStr: i === 0 ? `지금 (${targetHour}시)` : `${String(targetHour).padStart(2, "0")}:00`,
+      isoTime,
       temperature: temp,
       apparentTemperature: apparent,
       precipitationProbability: pop,
@@ -102,10 +152,13 @@ function getKmaHallasanModelForecast(now: Date): MountainWeatherResponse {
     };
   });
 
+  const kstTomorrow = getKSTDate(new Date(Date.now() + 86400000));
+  const kstDayAfter = getKSTDate(new Date(Date.now() + 172800000));
+
   const daily: DailyForecastItem[] = [
     {
       dateStr: "오늘",
-      isoDate: now.toISOString().slice(0, 10),
+      isoDate: `${kst.yearStr}-${kst.monthStr}-${kst.dayStr}`,
       weatherCode: 61,
       conditionText: "비/짙은 안개",
       iconType: "rain",
@@ -116,7 +169,7 @@ function getKmaHallasanModelForecast(now: Date): MountainWeatherResponse {
     },
     {
       dateStr: "내일",
-      isoDate: new Date(now.getTime() + 86400000).toISOString().slice(0, 10),
+      isoDate: `${kstTomorrow.yearStr}-${kstTomorrow.monthStr}-${kstTomorrow.dayStr}`,
       weatherCode: 4,
       conditionText: "흐림",
       iconType: "cloudy",
@@ -127,7 +180,7 @@ function getKmaHallasanModelForecast(now: Date): MountainWeatherResponse {
     },
     {
       dateStr: "모레",
-      isoDate: new Date(now.getTime() + 172800000).toISOString().slice(0, 10),
+      isoDate: `${kstDayAfter.yearStr}-${kstDayAfter.monthStr}-${kstDayAfter.dayStr}`,
       weatherCode: 3,
       conditionText: "구름많음",
       iconType: "partly_cloudy",
@@ -141,7 +194,7 @@ function getKmaHallasanModelForecast(now: Date): MountainWeatherResponse {
   return {
     locationName: "대한민국 기상청(KMA) 한라산 산악관측소 (격자: 53, 35 / 해발 1,500m)",
     coordinates: { lat: 33.3617, lng: 126.5292, elevation: 1500 },
-    updatedAt: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    updatedAt: `KST ${kst.monthStr}/${kst.dayStr} ${kst.hourStr}:${kst.minuteStr} (대한민국 표준시)`,
     current: {
       temperature: 11.0,
       apparentTemperature: 7.8,
@@ -162,24 +215,33 @@ function getKmaHallasanModelForecast(now: Date): MountainWeatherResponse {
     },
     hourly,
     daily,
-    dataSource: "대한민국 기상청 (KMA) 공공데이터포털 단기예보 시스템",
+    dataSource: "대한민국 기상청 (KMA) 공공데이터포털 단기예보 시스템 (KST 한국표준시)",
   };
 }
 
 export async function GET(req: NextRequest) {
-  const now = new Date();
   const { searchParams } = new URL(req.url);
-  const kmaKey = searchParams.get("kmaKey") || process.env.KMA_SERVICE_KEY;
+  const rawKey = searchParams.get("kmaKey") || process.env.KMA_SERVICE_KEY;
+  const { baseDate, baseTime, kst } = getKmaBaseDateTime();
 
   // 1. 공공데이터포털 기상청 단기예보 API 키가 제공된 경우: 실제 data.go.kr 기상청 서버 호출
-  if (kmaKey) {
+  if (rawKey && rawKey.trim()) {
     try {
-      const { baseDate, baseTime } = getKmaBaseDateTime();
+      let cleanKey = rawKey.trim();
+      // data.go.kr 특유의 인코딩 키 처리: 이미 %가 포함된 경우 디코딩 후 전달
+      try {
+        if (cleanKey.includes("%")) {
+          cleanKey = decodeURIComponent(cleanKey);
+        }
+      } catch {
+        // keep original
+      }
+
       const nx = 53; // 한라산 진달래밭/성판악 격자 X
       const ny = 35; // 한라산 격자 Y
 
       const kmaUrl = `http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=${encodeURIComponent(
-        kmaKey
+        cleanKey
       )}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=${baseTime}&nx=${nx}&ny=${ny}`;
 
       const res = await fetch(kmaUrl, {
@@ -202,19 +264,42 @@ export async function GET(req: NextRequest) {
           if (items.length > 0) {
             // 시간대별 데이터 그룹핑
             const timeMap = new Map<string, Record<string, string>>();
+            // 날짜별 데이터 그룹핑 (Daily 집계용)
+            const dateMap = new Map<string, Array<{ category: string; value: string; hour: number }>>();
+
             for (const item of items) {
               const key = `${item.fcstDate}_${item.fcstTime}`;
               if (!timeMap.has(key)) {
                 timeMap.set(key, {});
               }
               timeMap.get(key)![item.category] = item.fcstValue;
+
+              if (!dateMap.has(item.fcstDate)) {
+                dateMap.set(item.fcstDate, []);
+              }
+              dateMap.get(item.fcstDate)!.push({
+                category: item.category,
+                value: item.fcstValue,
+                hour: parseInt(item.fcstTime.slice(0, 2), 10),
+              });
             }
 
             const sortedKeys = Array.from(timeMap.keys()).sort();
+
+            // 현재 대한민국 시각 (KST) 기준 키: YYYYMMDD_HH00
+            const currentKstKey = `${kst.dateKey}_${kst.hourStr}00`;
+
+            // 과거 시간대는 필터링하고 현재 KST 시각부터 향후 12시간 추출
+            let validKeys = sortedKeys.filter((k) => k >= currentKstKey);
+            if (validKeys.length === 0) {
+              validKeys = sortedKeys.slice(0, 12);
+            }
+            const targetKeys = validKeys.slice(0, 12);
+
             const hourly: HourlyForecastItem[] = [];
 
-            for (let i = 0; i < Math.min(12, sortedKeys.length); i++) {
-              const k = sortedKeys[i];
+            for (let i = 0; i < targetKeys.length; i++) {
+              const k = targetKeys[i];
               const record = timeMap.get(k)!;
               const fcstDate = k.slice(0, 8);
               const fcstTime = k.slice(9, 13);
@@ -227,9 +312,11 @@ export async function GET(req: NextRequest) {
               const wsd = parseFloat(record.WSD || "5");
               const parsed = parseKmaWeatherStatus(pty, sky);
 
+              const timeDisplay = i === 0 ? `지금 (${hourNum}시)` : `${String(hourNum).padStart(2, "0")}:00`;
+
               hourly.push({
-                timeStr: i === 0 ? "지금" : `${hourNum}:00`,
-                isoTime: `${fcstDate.slice(0, 4)}-${fcstDate.slice(4, 6)}-${fcstDate.slice(6, 8)}T${fcstTime.slice(0, 2)}:00:00`,
+                timeStr: timeDisplay,
+                isoTime: `${fcstDate.slice(0, 4)}-${fcstDate.slice(4, 6)}-${fcstDate.slice(6, 8)}T${fcstTime.slice(0, 2)}:00:00+09:00`,
                 temperature: Math.round(tmp * 10) / 10,
                 apparentTemperature: Math.round((tmp - (wsd * 0.7)) * 10) / 10,
                 precipitationProbability: pop,
@@ -241,26 +328,71 @@ export async function GET(req: NextRequest) {
               });
             }
 
-            // 첫 시간대를 현재 날씨로 설정
-            const firstHour = hourly[0];
-            const currentTemp = firstHour ? firstHour.temperature : 11.0;
-            const currentPop = firstHour ? firstHour.precipitationProbability : 80;
+            // 기상청 실데이터 기반 3일 일별 예보 계산
+            const sortedDates = Array.from(dateMap.keys()).sort();
+            const daily: DailyForecastItem[] = [];
 
-            const baseForecast = getKmaHallasanModelForecast(now);
+            const kstTomorrow = getKSTDate(new Date(Date.now() + 86400000));
+            const kstDayAfter = getKSTDate(new Date(Date.now() + 172800000));
+
+            for (let dIdx = 0; dIdx < Math.min(3, sortedDates.length); dIdx++) {
+              const dateStrKey = sortedDates[dIdx];
+              const dItems = dateMap.get(dateStrKey) || [];
+
+              const temps = dItems.filter((it) => it.category === "TMP").map((it) => parseFloat(it.value)).filter((v) => !isNaN(v));
+              const pops = dItems.filter((it) => it.category === "POP").map((it) => parseInt(it.value, 10)).filter((v) => !isNaN(v));
+              const wsds = dItems.filter((it) => it.category === "WSD").map((it) => parseFloat(it.value)).filter((v) => !isNaN(v));
+              const ptys = dItems.filter((it) => it.category === "PTY").map((it) => parseInt(it.value, 10)).filter((v) => !isNaN(v));
+              const skys = dItems.filter((it) => it.category === "SKY").map((it) => parseInt(it.value, 10)).filter((v) => !isNaN(v));
+
+              const minTemp = temps.length > 0 ? Math.min(...temps) : 8.0;
+              const maxTemp = temps.length > 0 ? Math.max(...temps) : 12.0;
+              const maxPop = pops.length > 0 ? Math.max(...pops) : 50;
+              const maxWsd = wsds.length > 0 ? Math.max(...wsds) : 5.0;
+
+              const maxPty = ptys.length > 0 ? Math.max(...ptys) : 0;
+              const avgSky = skys.length > 0 ? Math.round(skys.reduce((a, b) => a + b, 0) / skys.length) : 3;
+              const parsedDaily = parseKmaWeatherStatus(maxPty, avgSky);
+
+              let label = "오늘";
+              if (dateStrKey === kst.dateKey) label = "오늘";
+              else if (dateStrKey === kstTomorrow.dateKey) label = "내일";
+              else if (dateStrKey === kstDayAfter.dateKey) label = "모레";
+              else {
+                label = `${dateStrKey.slice(4, 6)}/${dateStrKey.slice(6, 8)}`;
+              }
+
+              daily.push({
+                dateStr: label,
+                isoDate: `${dateStrKey.slice(0, 4)}-${dateStrKey.slice(4, 6)}-${dateStrKey.slice(6, 8)}`,
+                weatherCode: maxPty > 0 ? 61 : avgSky === 1 ? 0 : 3,
+                conditionText: parsedDaily.text,
+                iconType: parsedDaily.icon,
+                maxTemp: Math.round(maxTemp * 10) / 10,
+                minTemp: Math.round(minTemp * 10) / 10,
+                maxPrecipitationProb: maxPop,
+                maxWindSpeed: Math.round(maxWsd * 3.6 * 10) / 10,
+              });
+            }
+
+            const baseForecast = getKmaHallasanModelForecast(kst);
+            const firstHour = hourly[0];
+            const currentTemp = firstHour ? firstHour.temperature : baseForecast.current.temperature;
 
             return NextResponse.json({
               ...baseForecast,
-              updatedAt: `${baseDate.slice(4, 6)}/${baseDate.slice(6, 8)} ${baseTime.slice(0, 2)}:00 기상청 공식 발표`,
+              updatedAt: `KST ${baseDate.slice(4, 6)}/${baseDate.slice(6, 8)} ${baseTime.slice(0, 2)}:00 기상청 발표 (${kst.hourStr}:${kst.minuteStr} 실시간 동기화)`,
               current: {
                 ...baseForecast.current,
                 temperature: currentTemp,
-                apparentTemperature: firstHour ? firstHour.apparentTemperature : 7.8,
-                windSpeed: firstHour ? firstHour.windSpeed : 21.5,
-                conditionText: firstHour ? firstHour.conditionText : "흐림",
-                iconType: firstHour ? firstHour.iconType : "cloudy",
+                apparentTemperature: firstHour ? firstHour.apparentTemperature : baseForecast.current.apparentTemperature,
+                windSpeed: firstHour ? firstHour.windSpeed : baseForecast.current.windSpeed,
+                conditionText: firstHour ? firstHour.conditionText : baseForecast.current.conditionText,
+                iconType: firstHour ? firstHour.iconType : baseForecast.current.iconType,
               },
               hourly,
-              dataSource: `대한민국 기상청 (KMA) 공공데이터포털 실시간 API (격자 53, 35)`,
+              daily: daily.length > 0 ? daily : baseForecast.daily,
+              dataSource: `대한민국 기상청 (KMA) 공공데이터포털 실시간 API (격자 53, 35 / KST 한국표준시)`,
             });
           }
         }
@@ -271,5 +403,5 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. KMA_SERVICE_KEY가 없거나 호출 실패 시: 대한민국 기상청 표준 한라산 모델 규격 반환
-  return NextResponse.json(getKmaHallasanModelForecast(now));
+  return NextResponse.json(getKmaHallasanModelForecast(kst));
 }

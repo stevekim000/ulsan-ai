@@ -61,11 +61,14 @@ export default function MountainWeatherCard({
         const data: MountainWeatherResponse = await res.json();
         setWeather(data);
         setLastRefreshed(
-          new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          })
+          "KST " +
+            new Intl.DateTimeFormat("ko-KR", {
+              timeZone: "Asia/Seoul",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            }).format(new Date())
         );
       }
     } catch (e) {
@@ -179,13 +182,19 @@ export default function MountainWeatherCard({
               </span>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping mr-1" />
-                기상청 격자(53, 35) {kmaKey ? "실시간 연동" : "산악관측망"}
+                대한민국 표준시(KST) {kmaKey ? "기상청 실시간" : "산악관측망"}
               </span>
             </div>
             <p className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
               <span>{weather.locationName}</span>
               <span className="text-slate-600">•</span>
-              <span>기준: {weather.updatedAt}</span>
+              <span>{weather.updatedAt}</span>
+              {lastRefreshed && (
+                <>
+                  <span className="text-slate-600">•</span>
+                  <span className="text-sky-400 font-medium">{lastRefreshed} 갱신</span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -393,20 +402,23 @@ export default function MountainWeatherCard({
             {activeTab === "hourly" && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
-                  <span>기상청 격자(53, 35) 기준 향후 12시간 산악 기상 변화</span>
+                  <span className="text-sky-300 font-bold flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-sky-400" />
+                    <span>대한민국 표준시(KST) 기준 향후 12시간 산악 기상 변화</span>
+                  </span>
                   <span>좌우 스크롤 ➜</span>
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700">
                   {weather.hourly.map((hour, idx) => (
                     <div
                       key={hour.isoTime || idx}
-                      className={`shrink-0 w-20 p-2.5 rounded-xl border text-center transition-all ${
+                      className={`shrink-0 min-w-[84px] p-2.5 rounded-xl border text-center transition-all ${
                         idx === 0
-                          ? "bg-blue-950/60 border-blue-500/50 shadow-md shadow-blue-500/20"
+                          ? "bg-blue-950/60 border-blue-500/50 shadow-md shadow-blue-500/20 ring-1 ring-blue-400/40"
                           : "bg-slate-950/70 border-slate-800/90 hover:border-slate-700"
                       }`}
                     >
-                      <p className="text-[11px] font-black text-slate-300">
+                      <p className={`text-[11px] font-black ${idx === 0 ? "text-sky-300" : "text-slate-300"}`}>
                         {hour.timeStr}
                       </p>
                       <div className="my-1.5 flex justify-center">
@@ -488,8 +500,10 @@ export default function MountainWeatherCard({
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <span>대한민국 표준시(KST, UTC+9) 적용</span>
+            <span className="text-slate-700">|</span>
             <span>격자좌표: nx=53, ny=35 (한라산 국립공원)</span>
-            {lastRefreshed && <span>• 갱신: {lastRefreshed}</span>}
+            {lastRefreshed && <span>• {lastRefreshed}</span>}
           </div>
         </div>
       </div>
