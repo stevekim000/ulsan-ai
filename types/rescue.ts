@@ -84,5 +84,5 @@ export interface RescueTimelineEvent {
   title: string;
   content: string;
   type: 'alert' | 'ai_analysis' | 'teacher_action' | 'rescue_team' | 'resolved';
-  actor: string; // '산울림 AI', '인솔교사 김선생', '울산소방 산악구조대'
+  actor: string; // '메아리 AI', '인솔교사 김선생', '울산소방 산악구조대'
 }

@@ -96,7 +96,9 @@ export default function VoiceLocationAnalyzer({
   useEffect(() => {
     // 로컬 스토리지에 저장된 Gemini API 키 불러오기
     if (typeof window !== "undefined") {
-      const savedKey = localStorage.getItem("sanwoolim_gemini_api_key");
+      const savedKey =
+        localStorage.getItem("meari_gemini_api_key") ||
+        localStorage.getItem("sanwoolim_gemini_api_key");
       if (savedKey) {
         setApiKey(savedKey);
       }
@@ -145,7 +147,7 @@ export default function VoiceLocationAnalyzer({
 
   const handleSaveApiKey = () => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("sanwoolim_gemini_api_key", apiKey.trim());
+      localStorage.setItem("meari_gemini_api_key", apiKey.trim());
       setKeySaved(true);
       setTimeout(() => setKeySaved(false), 2000);
       setShowKeyInput(false);
@@ -479,7 +481,7 @@ export default function VoiceLocationAnalyzer({
         <div className="p-6 bg-blue-950/40 border border-blue-500/30 rounded-2xl text-center space-y-3 animate-pulse">
           <div className="w-8 h-8 border-3 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs font-bold text-blue-300">
-            산울림 AI가 한라산 등산로 데이터 및 고도 팻말 정보를 대조하는 중입니다...
+            메아리 AI가 한라산 등산로 데이터 및 고도 팻말 정보를 대조하는 중입니다...
           </p>
         </div>
       )}

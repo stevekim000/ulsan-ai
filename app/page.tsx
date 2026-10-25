@@ -77,7 +77,7 @@ export default function HomePage() {
       title: `AI 위치 특정 성공: ${result.matchedPOI?.name}`,
       content: result.timelineExplanation,
       type: "ai_analysis",
-      actor: "산울림 AI 엔진",
+      actor: "메아리 AI 엔진",
     };
     setTimeline((prev) => [newEvent, ...prev]);
 
@@ -115,7 +115,7 @@ export default function HomePage() {
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-lg font-black tracking-tight text-white">산울림 AI</span>
+                <span className="text-lg font-black tracking-tight text-white">메아리 AI</span>
                 <span className="text-[10px] bg-red-600/20 text-red-400 border border-red-600/30 px-2 py-0.5 rounded-full font-bold">
                   {DEFAULT_HIKING_TRAIL.mountainName}
                 </span>
@@ -172,16 +172,6 @@ export default function HomePage() {
           />
         )}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>© 2026 산울림 (SanWoolim) AI - 울산 AI 해커톤 출품작</p>
-          <p className="text-[11px] text-slate-400">
-            공모 주제: <b>존중과 배려로 함께 안심하는 학교 &amp; 소통과 신뢰 구축</b>
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

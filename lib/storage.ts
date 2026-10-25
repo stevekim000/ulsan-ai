@@ -1,9 +1,9 @@
 import { Student, LocationPoint, RescueTimelineEvent } from "@/types/rescue";
 import { HALLASAN_LANDMARKS } from "@/lib/mountainData";
 
-const STORAGE_KEY_STUDENTS = "sanwoolim_students_v1";
-const STORAGE_KEY_TIMELINE = "sanwoolim_timeline_v1";
-const STORAGE_KEY_MY_GPS = "sanwoolim_offline_gps_v1";
+const STORAGE_KEY_STUDENTS = "meari_students_v1";
+const STORAGE_KEY_TIMELINE = "meari_timeline_v1";
+const STORAGE_KEY_MY_GPS = "meari_offline_gps_v1";
 
 // 기본 초기 수학여행 학생 데이터셋 (한라산 성판악 코스)
 export const INITIAL_STUDENTS: Student[] = [
@@ -108,7 +108,7 @@ export const INITIAL_TIMELINE: RescueTimelineEvent[] = [
     title: "김민준 학생 조난 SOS 신호 발생",
     content: "해발 1,400m 이상 고산지대 급격한 안개 발생으로 대열 이탈 감지. 단말기 긴급 조난 모드 가동.",
     type: "alert",
-    actor: "산울림 AI 감지기",
+    actor: "메아리 AI 감지기",
   },
   {
     id: "tl-03",
@@ -116,7 +116,7 @@ export const INITIAL_TIMELINE: RescueTimelineEvent[] = [
     title: "학생 주변 환경 음성 제보 접수 및 AI 분석 완료",
     content: "학생 음성: '해발 1500m 팻말과 대피소 건물이 희미하게 보여요' ➜ AI 분석: 진달래밭 대피소(1,500m) 인근 반경 35m로 위치 특정.",
     type: "ai_analysis",
-    actor: "산울림 AI 엔진",
+    actor: "메아리 AI 엔진",
   },
   {
     id: "tl-04",
@@ -213,7 +213,7 @@ export interface TeacherBroadcastMessage {
   timestamp: number;
 }
 
-const STORAGE_KEY_TEACHER_MSG = "sanwoolim_teacher_msgs_v1";
+const STORAGE_KEY_TEACHER_MSG = "meari_teacher_msgs_v1";
 
 export function getTeacherMessages(): TeacherBroadcastMessage[] {
   if (typeof window === "undefined") return [];
