@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Info, Radio } from "lucide-react";
 import VoiceLocationAnalyzer from "@/components/VoiceLocationAnalyzer";
 import SirenSoundPlayer from "@/components/SirenSoundPlayer";
+import MountainWeatherCard from "@/components/MountainWeatherCard";
 import { AIEstimateResult } from "@/types/rescue";
 import { getTeacherMessages, TeacherBroadcastMessage } from "@/lib/storage";
 
@@ -49,6 +50,9 @@ export default function StudentSosView({
           </div>
         </div>
       )}
+
+      {/* Mountain Real-time Weather & Upcoming Forecast */}
+      <MountainWeatherCard variant="student" />
 
       {/* Voice-to-Landmark AI Engine (테스트용: GPS 고도 미전달, 순수 음성 단서 분석) */}
       <VoiceLocationAnalyzer

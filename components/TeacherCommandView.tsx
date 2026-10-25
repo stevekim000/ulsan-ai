@@ -16,6 +16,7 @@ import {
   FileCheck2
 } from "lucide-react";
 import MountainMap from "@/components/MountainMap";
+import MountainWeatherCard from "@/components/MountainWeatherCard";
 import { Student, AIEstimateResult } from "@/types/rescue";
 import { addTimelineEvent, addTeacherMessage, getTeacherMessages, TeacherBroadcastMessage } from "@/lib/storage";
 
@@ -123,10 +124,13 @@ export default function TeacherCommandView({
             <CloudFog className="w-3.5 h-3.5 text-amber-400" />
             현지 기상 (1500m)
           </p>
-          <p className="text-xl font-black text-white mt-0.5">7°C · 짙은 안개</p>
-          <span className="text-[10px] text-slate-400">풍속 8.2m/s, 시야 20m 미만</span>
+          <p className="text-xl font-black text-white mt-0.5">11°C · 비/안개</p>
+          <span className="text-[10px] text-sky-400 font-medium">위성 실시간 기상 연동</span>
         </div>
       </div>
+
+      {/* Mountain Real-time Weather & Upcoming Forecast */}
+      <MountainWeatherCard variant="teacher" />
 
       {/* Emergency Active Alert & AI Location Dispatch Banner */}
       {emergencyStudents.length > 0 && (
