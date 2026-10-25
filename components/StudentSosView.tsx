@@ -1,19 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Info, Radio } from "lucide-react";
+import { Info, Radio, MapPin } from "lucide-react";
 import VoiceLocationAnalyzer from "@/components/VoiceLocationAnalyzer";
 import SirenSoundPlayer from "@/components/SirenSoundPlayer";
 import MountainWeatherCard from "@/components/MountainWeatherCard";
-import { AIEstimateResult } from "@/types/rescue";
+import MountainMap from "@/components/MountainMap";
+import { AIEstimateResult, Student } from "@/types/rescue";
 import { getTeacherMessages, TeacherBroadcastMessage } from "@/lib/storage";
 
 interface StudentSosViewProps {
   onAiAnalysisDone: (result: AIEstimateResult) => void;
+  aiEstimate?: AIEstimateResult | null;
+  students?: Student[];
 }
 
 export default function StudentSosView({
   onAiAnalysisDone,
+  aiEstimate,
+  students = [],
 }: StudentSosViewProps) {
   const [teacherMsgs, setTeacherMsgs] = useState<TeacherBroadcastMessage[]>([]);
 
@@ -58,6 +63,28 @@ export default function StudentSosView({
       <VoiceLocationAnalyzer
         onAnalysisComplete={onAiAnalysisDone}
       />
+
+      {/* Interactive Mountain Map (5대 코스 및 추정 후보 확인) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs text-slate-300 px-1">
+          <span className="font-bold flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-emerald-400" />
+            <span>한라산 5대 탐방로 및 추정 위치 지도</span>
+          </span>
+          {aiEstimate?.selectedCandidateCourse && (
+            <span className="text-[11px] text-emerald-300 font-bold bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              선택 코스: [{aiEstimate.selectedCandidateCourse} 코스] 우선 타깃 설정됨
+            </span>
+          )}
+        </div>
+
+        <MountainMap
+          students={students}
+          aiEstimate={aiEstimate}
+          selectedCourse={aiEstimate?.selectedCandidateCourse}
+          height="380px"
+        />
+      </div>
 
       {/* Whistle / Siren Audio Tool */}
       <SirenSoundPlayer />

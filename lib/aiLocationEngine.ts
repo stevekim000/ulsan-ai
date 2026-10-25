@@ -1,4 +1,4 @@
-import { LandmarkPOI, AIEstimateResult, InferenceStep, TerrainAnalysis } from "@/types/rescue";
+import { LandmarkPOI, AIEstimateResult, InferenceStep, TerrainAnalysis, LocationCandidate } from "@/types/rescue";
 import {
   HALLASAN_LANDMARKS,
   HALLASAN_TRAILS,
@@ -135,6 +135,157 @@ function predictTerrainFromLearnedData(
 }
 
 /**
+ * 4-1단계: 고도만 주어진 경우 5대 탐방로 전체의 분산 후보 생성 함수
+ * - 초기 화면에 대한 예시 후보 비율은 만들지 않고 5개 코스 균등 20% 점수로 부여
+ * - 후보 점수와 위치 신뢰도를 서로 다른 지표로 분리 (후보 점수: 20점, 위치 신뢰도: 35%)
+ * - 성판악, 영실, 관음사, 어리목, 돈내코 5개 코스별 해당 고도 구간 특징 및 체크리스트 제공
+ */
+export function generateDispersedAltitudeCandidates(
+  altitude: number,
+  userSpeechText: string
+): LocationCandidate[] {
+  const targetAlt = altitude || 1500;
+
+  const courseProfiles: Record<TrailName, {
+    keyLandmark: string;
+    point: { lat: number; lng: number; alt: number; signCode: string };
+    area: string;
+    altRange: string;
+    terrain: string;
+    vegetation: string;
+    feature: string;
+    shelter: string;
+    checklist: Array<{ text: string; matched: boolean }>;
+    questions: string[];
+  }> = {
+    성판악: {
+      keyLandmark: "진달래밭 대피소 (붉은 기와지붕 건물)",
+      point: { lat: 33.3711, lng: 126.5678, alt: 1500, signCode: "성판악 1-24" },
+      area: "성판악 코스 상행 7.3km 진달래밭 분지 일대",
+      altRange: "해발 1,450m ~ 1,550m",
+      terrain: "완만한 경사의 화산암 자갈길 및 목재 데크 보행로",
+      vegetation: "아고산대 구상나무 군락, 털진달래 및 조릿대 지대",
+      feature: "백록담 동릉 정상 진입 통제소 및 기상관측 타워 위치",
+      shelter: "진달래밭 대피소, 1500m 표지석",
+      checklist: [
+        { text: "붉은색/주황색 지붕의 대피소 건물이 보이나요?", matched: /붉은|빨간|기와|지붕|대피소/.test(userSpeechText) },
+        { text: "주변에 '성판악 1-24' 표지목이 있나요?", matched: /성판악|1-24/.test(userSpeechText) },
+        { text: "정상 진입을 통제하는 목재 게이트가 있나요?", matched: /통제|게이트|정상/.test(userSpeechText) },
+      ],
+      questions: [
+        "주변에 붉은 지붕 대피소 건물(진달래밭 대피소)이나 탐방 통제소가 보이나요?",
+        "올라오시면서 '사라오름' 갈림길을 지나치셨나요?",
+      ],
+    },
+    영실: {
+      keyLandmark: "영실 기암 병풍바위 및 오백나한 조망터",
+      point: { lat: 33.3527, lng: 126.4751, alt: 1500, signCode: "영실 1-14" },
+      area: "영실 코스 상행 3.7km 병풍바위 상단~오백나한 구간",
+      altRange: "해발 1,450m ~ 1,550m",
+      terrain: "가파른 급경사 목재 데크 계단길 및 수직 암벽 지대",
+      vegetation: "구상나무 군락 시작점, 털진달래, 바위 틈 고산 식생",
+      feature: "수직 주상절리 병풍바위가 머리 위에 병풍처럼 둘러서 있고 서귀포 남해 바다가 조망됨",
+      shelter: "병풍바위 상단 쉼터 (1450m), 오백나한 조망터 (1500m)",
+      checklist: [
+        { text: "거대한 수직 암벽(병풍바위)이 머리 위나 옆에 있나요?", matched: /병풍바위|암벽|절벽|바위/.test(userSpeechText) },
+        { text: "가파른 목재 계단을 계속 오르고 계셨나요?", matched: /계단|급경사|오르막/.test(userSpeechText) },
+        { text: "서귀포 바다 방향 조망이 탁 트여 있나요?", matched: /바다|조망|시야/.test(userSpeechText) },
+      ],
+      questions: [
+        "주변에 병풍을 친 듯한 거대한 수직 바위벽(병풍바위)이 바로 보이시나요?",
+        "가파른 목재 계단을 타고 올라오셨나요, 아니면 평탄한 길이었나요?",
+      ],
+    },
+    관음사: {
+      keyLandmark: "삼각봉 대피소 및 뾰족한 삼각봉 암벽",
+      point: { lat: 33.3871, lng: 126.5270, alt: 1500, signCode: "관음사 2-24" },
+      area: "관음사 코스 6.8km 개미등 상단~삼각봉 대피소",
+      altRange: "해발 1,450m ~ 1,550m",
+      terrain: "거친 화산암 급경사 너덜길, 좁은 협곡 능선",
+      vegetation: "울창한 아고산 침엽수림, 산철쭉, 절벽 식생",
+      feature: "삼각형 뿔 모양의 웅장한 삼각봉 암벽이 정면에 우뚝 솟아있음",
+      shelter: "삼각봉 대피소 (1500m), 용진각 현수교 (1600m 방면)",
+      checklist: [
+        { text: "피라미드처럼 뾰족한 거대 암봉(삼각봉)이 정면에 보이나요?", matched: /삼각봉|피라미드|뾰족/.test(userSpeechText) },
+        { text: "화물 운반용 산악 모노레일 철로를 보셨나요?", matched: /모노레일|레일|철로/.test(userSpeechText) },
+        { text: "깊은 계곡이나 출렁다리 소리가 들리나요?", matched: /계곡|출렁다리|다리|현수교/.test(userSpeechText) },
+      ],
+      questions: [
+        "정면에 뾰족한 삼각형 모양의 거대한 바위산(삼각봉)이 보이시나요?",
+        "등산로 바닥이나 옆에 모노레일 철로가 깔려 있었나요?",
+      ],
+    },
+    어리목: {
+      keyLandmark: "사제비동산 쉼터 및 사제비샘 평전",
+      point: { lat: 33.3697, lng: 126.4731, alt: 1550, signCode: "어리목 1-10" },
+      area: "어리목 코스 4.1km 사제비샘~사제비동산 능선",
+      altRange: "해발 1,420m ~ 1,550m",
+      terrain: "완만한 경사의 화산 자갈길 및 목재 데크 탐방로",
+      vegetation: "제주조릿대 군락 평전, 활엽수에서 침엽수 전이대",
+      feature: "급경사 어리목 계곡 숲길을 벗어나 갑자기 시야가 탁 트이는 고산 초원 지대 진입",
+      shelter: "사제비샘 (1420m), 만세동산 전망대 (1600m 방면)",
+      checklist: [
+        { text: "바위 틈에서 물이 나오는 샘터(사제비샘)를 지나셨나요?", matched: /샘터|약수|물|샘/.test(userSpeechText) },
+        { text: "키 작은 대나무(조릿대)가 바닥에 넓게 깔려 있나요?", matched: /조릿대|대나무|풀밭|초원/.test(userSpeechText) },
+        { text: "가파른 숲을 벗어나 완만한 초원길로 바뀌었나요?", matched: /초원|완만|평전/.test(userSpeechText) },
+      ],
+      questions: [
+        "물이 솟아나는 약수터(사제비샘)를 최근에 지나셨나요?",
+        "주변에 키 작은 제주조릿대(풀밭처럼 보이는 대나무)가 넓게 펼쳐져 있나요?",
+      ],
+    },
+    돈내코: {
+      keyLandmark: "평궤 대피소 (자연 바위동굴 쉼터) 및 넓은드르",
+      point: { lat: 33.3465, lng: 126.5432, alt: 1530, signCode: "돈내코 1-22" },
+      area: "돈내코 코스 5.8km 평궤대피소~넓은드르 지대",
+      altRange: "해발 1,450m ~ 1,550m",
+      terrain: "거칠고 원시적인 화산 쇄설물 암반길, 경사 완만",
+      vegetation: "용암 지대 관목림, 털진달래, 조릿대",
+      feature: "탐방객 통행량이 적고 거친 용암 평원 지대로 백록담 남벽 거대한 화산벽이 올려다보임",
+      shelter: "평궤 대피소 (1450m), 남벽분기점 (1600m 방면)",
+      checklist: [
+        { text: "자연 바위 틈 동굴처럼 생긴 쉼터(평궤)를 보셨나요?", matched: /동굴|바위틈|평궤/.test(userSpeechText) },
+        { text: "다른 등산객이 거의 없는 한적한 길인가요?", matched: /조용|사람없|한적/.test(userSpeechText) },
+        { text: "백록담의 거대한 남쪽 절벽(남벽)이 바로 앞에 보이나요?", matched: /남벽|절벽|화산벽/.test(userSpeechText) },
+      ],
+      questions: [
+        "주변에 지나다니는 탐방객이 거의 없고 한적한가요?",
+        "커다란 자연 바위 그늘 형태의 평궤 대피소를 지나치셨나요?",
+      ],
+    },
+  };
+
+  const courses: TrailName[] = ["성판악", "영실", "관음사", "어리목", "돈내코"];
+
+  return courses.map((course, idx) => {
+    const prof = courseProfiles[course];
+    return {
+      rank: idx + 1,
+      course,
+      candidateScore: 20, // 초기 5개 코스 균등 20% 점수 (사용자 지침: 초기 예시 비율 만들지 말고 다 똑같이)
+      locationConfidence: 35, // 고도 단일 정보의 낮은 위치 신뢰도 별도 구분
+      estimatedArea: prof.area,
+      altitudeRange: prof.altRange,
+      coordinates: {
+        lat: prof.point.lat,
+        lng: prof.point.lng,
+      },
+      keyLandmark: prof.keyLandmark,
+      reasoning: `해발 ${targetAlt}m 등고선 대역이 ${course} 코스 탐방로와 교차하는 핵심 구역. 지형 고도 프로파일 1:1 일치.`,
+      matchedClues: [`해발 고도 (약 ${targetAlt}m)`],
+      unmatchedClues: [`${course} 코스 고유 랜드마크 미확인`, "위치표지목 고유 코드 미확인"],
+      additionalQuestions: prof.questions,
+      terrainState: prof.terrain,
+      vegetation: prof.vegetation,
+      elevationFeature: prof.feature,
+      shelterAndKeyPoints: prof.shelter,
+      checklist: prof.checklist,
+      isSelectedByUser: false,
+    };
+  });
+}
+
+/**
  * 5단계 AI 위치 추론 핵심 엔진
  * 학생 음성 데이터를 토대로 학습된 데이터(5대 탐방로, 표지목, 국가지점번호, 동의어, 정밀 지형 프로필)와
  * 체계적으로 비교·분석하여 위치를 확정하고 현장 지형을 정밀 예측함
@@ -150,33 +301,14 @@ export function analyzeVoiceEnvironment(
   const forceJudgment = typeof forceJudgmentOrLastAlt === "boolean" ? forceJudgmentOrLastAlt : false;
   const lastGpsAlt = typeof forceJudgmentOrLastAlt === "number" ? forceJudgmentOrLastAlt : undefined;
 
+  const extractedAltitude = extractAltitudeFromSpeech(text);
+  const extractedSignCode = extractSignCode(text);
+  const extractedGCode = extractNationalCode(text);
+  const extractedTrail = extractTrailName(text);
+  const extractedLandmarks: string[] = [];
+
   // 정보 차원(해발고도, 주변 지형, 가까운 랜드마크) 평가
   const evalResult = evaluateInfoDimensions(text, forceJudgment);
-
-  // 정보 중 1개만 주어지고, 추가 제시 불가 상황도 아니라면 정보 부족 안내 반환
-  if (evalResult.isInsufficient) {
-    return {
-      analyzedText: text,
-      isInsufficientInfo: true,
-      insufficientMessage: evalResult.insufficientMessage,
-      guidePrompt: evalResult.guidePrompt,
-      presentDimensions: evalResult.presentDimensions,
-      missingDimensions: evalResult.missingDimensions,
-      extractedLandmarks: [...evalResult.detectedTerrains, ...evalResult.detectedLandmarks],
-      extractedAltitude: evalResult.detectedAltitude,
-      estimatedLat: 33.3605,
-      estimatedLng: 126.5532,
-      confidence: 35,
-      radiusMeters: 200,
-      urgencyLevel: 'high',
-      aiRecommendations: [
-        "정보 부족: 주변 지형 또는 가까운 랜드마크를 추가로 제보하도록 안내하세요.",
-        "정보 추가가 불가능할 경우 [현재 정보로 즉시 위치 판단]을 선택하세요."
-      ],
-      timelineExplanation: evalResult.insufficientMessage || "단일 정보만 확인되어 추가 정보 수집 대기 중입니다."
-    };
-  }
-
   const isSingleInfoJudgment = evalResult.dimensionCount === 1 && evalResult.isCannotProvideMore;
   const singleDimName = evalResult.presentDimensions[0] || "단일 정보";
 
@@ -184,12 +316,6 @@ export function analyzeVoiceEnvironment(
   const keywordCheck = detectMountainKeywords(text);
   const isInternetSearchUsed = !keywordCheck.hasExplicitKeywords;
   const internetSearchQueries = isInternetSearchUsed ? extractSearchQueriesFromVoice(text) : undefined;
-
-  const extractedAltitude = extractAltitudeFromSpeech(text);
-  const extractedSignCode = extractSignCode(text);
-  const extractedGCode = extractNationalCode(text);
-  const extractedTrail = extractTrailName(text);
-  const extractedLandmarks: string[] = [];
 
   // ========================================
   // 1단계: 표지판 코드로 정확한 위치 특정 (최우선 순위: 신뢰도 98%)
@@ -514,6 +640,103 @@ export function analyzeVoiceEnvironment(
         timelineExplanation: `학생이 보고한 '${extractedTrail} 코스 해발 ${extractedAltitude}m' 데이터를 학습된 한라산 등고선 DB와 대조하여, ${closestPoint.name}(해발 ${closestPoint.alt}m, 표지목 ${closestPoint.signCode})으로 위치를 특정했습니다.`
       };
     }
+  }
+
+  // ========================================
+  // 4-1단계: 고도만 주어진 경우의 분산 후보 추정 (핵심 요구사항)
+  // 예: "해발 1500m", "해발 1500m 표지판이 보여요", "1500미터"
+  // 코스명이 주어지지 않고 고도만 주어진 경우 특정 코스를 임의로 확정하지 않고,
+  // 한라산 5대 코스(성판악, 영실, 관음사, 어리목, 돈내코)의 해당 고도 구간을
+  // 모두 독립된 후보군(동일한 20% 점수)으로 반환하여 불확실성을 명시한다.
+  // ========================================
+  if (extractedAltitude && !extractedTrail) {
+    const candidates = generateDispersedAltitudeCandidates(extractedAltitude, text);
+
+    // 추가 정보 제시 불가가 아니면서 강제 판단 요청이 없으면 정보 부족 안내와 함께 5개 코스 후보 반환
+    if (!forceJudgment && !evalResult.isCannotProvideMore) {
+      return {
+        analyzedText: text,
+        isInsufficientInfo: true,
+        insufficientMessage: `해발고도 정보(약 ${extractedAltitude}m)만 확인되어 1개 코스로 단정할 수 없습니다. 한라산 5대 코스 전역의 해당 등고선 대역을 분산 후보군(동등 20% 점수)으로 도출했습니다.`,
+        guidePrompt: "고도만으로는 5개 코스 중 어느 코스인지 특정하기 어렵습니다.\n주변에 보이는 바위 형태, 대피소 건물 색상, 계단 유무를 추가로 말씀해 주시거나 아래 5개 후보 중 일치하는 코스를 선택해 주세요.",
+        presentDimensions: [`해발고도 (${extractedAltitude}m)`],
+        missingDimensions: ["주변 지형", "가까운 랜드마크"],
+        extractedLandmarks: [`해발 ${extractedAltitude}m`, "5대 코스 분산 후보"],
+        extractedAltitude,
+        estimatedLat: 33.3617,
+        estimatedLng: 126.5292,
+        confidence: 35,
+        radiusMeters: 250,
+        urgencyLevel: extractedAltitude >= 1500 ? "critical" : "high",
+        candidates,
+        isAltitudeOnlyDispersed: true,
+        aiRecommendations: [
+          "정보 부족: 주변 지형 또는 가까운 랜드마크를 추가로 제보하도록 안내하세요.",
+          "추가 단서 제시가 불가능할 경우 아래 [5대 코스 후보] 중 가장 유사한 코스를 직접 선택하거나 [현재 정보로 즉시 위치 판단]을 누르세요."
+        ],
+        timelineExplanation: `해발 ${extractedAltitude}m 단일 정보만 확인되어 5개 코스 분산 후보군(동등 20% 점수)을 도출했습니다.`
+      };
+    }
+
+    return {
+      analyzedText: text,
+      extractedLandmarks: [`해발 ${extractedAltitude}m`, "한라산 5대 코스 분산 후보군"],
+      extractedAltitude,
+      matchedPOI: {
+        id: `alt-${extractedAltitude}-dispersed`,
+        name: `한라산 해발 ${extractedAltitude}m 등고선 대역 (5대 코스 분산 후보)`,
+        type: "signpost",
+        altitude: extractedAltitude,
+        lat: 33.3617,
+        lng: 126.5292,
+        description: `해발 ${extractedAltitude}m 고도 정보 기반 - 한라산 5대 코스(성판악/영실/관음사/어리목/돈내코) 전역의 해당 고도 통과 구간을 후보로 생성 (불확실성 명시)`,
+        keywords: [String(extractedAltitude), "1500m", "등고선", "분산후보", "단일단서"]
+      },
+      estimatedLat: 33.3617,
+      estimatedLng: 126.5292,
+      confidence: 35, // 위치 신뢰도는 고도 단일 단서이므로 35%로 정직하게 표기
+      radiusMeters: 250, // 5개 코스 분산 등고선 대역을 아우르는 광역 반경
+      urgencyLevel: extractedAltitude >= 1500 ? "critical" : "high",
+      isSingleInfoJudgment: true,
+      singleInfoDimension: "해발고도",
+      isAltitudeOnlyDispersed: true,
+      candidates,
+      matchedReason: `고도(해발 ${extractedAltitude}m) 단일 정보 분석: 한라산 5대 코스 등고선 대역 전체에 걸친 분산 후보군(5개 코스 동등 20% 점수) 도출 완료. 특정 코스로 단정하지 않고 불확실성 명시.`,
+      reasoningSteps: [
+        {
+          icon: "📐",
+          title: "고도 단일 정보(해발 1500m) 포착",
+          desc: `음성 속 해발 ${extractedAltitude}m 단서 확인. 코스명 및 고유 랜드마크 부재로 특정 지점 단정 불가`
+        },
+        {
+          icon: "🌐",
+          title: "한라산 5대 코스 등고선 프로파일 대조",
+          desc: `해발 ${extractedAltitude}m 등고선이 통과하는 성판악, 영실, 관음사, 어리목, 돈내코 5개 구간을 분산 후보군으로 도출`
+        },
+        {
+          icon: "⚖️",
+          title: "동등 후보 점수 배정 (초기 20% 균등)",
+          desc: "자의적 단정을 방지하기 위해 5대 코스에 동일한 20% 후보 점수 부여 및 위치 신뢰도 35% 분리 표시"
+        },
+        {
+          icon: "🎯",
+          title: "탐방객 지형 비교 및 코스 선택 유도",
+          desc: "각 코스별 지형 특징, 식생, 대피소 체크리스트를 대조하여 최종 코스 선택 지원"
+        }
+      ],
+      terrainAnalysis: {
+        terrainType: `한라산 해발 ${extractedAltitude}m 아고산대 분산 등고선 대역`,
+        weatherCondition: "고지대 기온 급강하 및 짙은 안개(시계 15m 미만) 주의 요망",
+        riskFactor: "코스 미특정 상태에서의 임의 이동 금지 (방향 상실 및 저체온증 고위험)",
+        trailCourse: `한라산 5대 탐방로 ${extractedAltitude}m 등고선 구간`
+      },
+      aiRecommendations: [
+        "고도만으로는 단일 코스를 특정할 수 없으므로 아래 5개 코스 후보군을 대조하세요.",
+        "탐방객에게 주변에 보이는 바위 형태, 대피소 건물 색상, 계단 유무를 추가 질문하세요.",
+        "탐방객이 '아! 이 코스 같다!'를 선택하면 해당 코스를 우선 타깃으로 관제합니다."
+      ],
+      timelineExplanation: `학생이 해발 ${extractedAltitude}m 고도 정보만 진술하여, 특정 코스로 자의적 단정하지 않고 한라산 5대 탐방로 전체의 해당 고도 구간 5개를 분산 후보군(동등 20% 점수)으로 도출했습니다.`
+    };
   }
 
   // ========================================

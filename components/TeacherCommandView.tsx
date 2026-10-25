@@ -17,7 +17,9 @@ import {
 } from "lucide-react";
 import MountainMap from "@/components/MountainMap";
 import MountainWeatherCard from "@/components/MountainWeatherCard";
+import CourseCandidatesView from "@/components/CourseCandidatesView";
 import { Student, AIEstimateResult } from "@/types/rescue";
+import { TrailName } from "@/lib/mountainData";
 import { addTimelineEvent, addTeacherMessage, getTeacherMessages, TeacherBroadcastMessage } from "@/lib/storage";
 
 interface TeacherCommandViewProps {
@@ -28,12 +30,14 @@ interface TeacherCommandViewProps {
     title: string;
     message: string;
   }) => void;
+  onSelectCandidateCourse?: (course: TrailName) => void;
 }
 
 export default function TeacherCommandView({
   students,
   aiEstimate,
   onNotification,
+  onSelectCandidateCourse,
 }: TeacherCommandViewProps) {
   const [selectedStudent, setSelectedStudent] = useState<Student>(students[0]);
   const [dispatch119Done, setDispatch119Done] = useState<boolean>(false);
@@ -323,8 +327,26 @@ export default function TeacherCommandView({
           students={students}
           selectedStudent={selectedStudent}
           aiEstimate={aiEstimate}
+          selectedCourse={aiEstimate?.selectedCandidateCourse}
+          onSelectCandidateCourse={onSelectCandidateCourse}
           height="480px"
         />
+
+        {/* 5대 코스 분산 후보 비교 카드 (교사 관제 화면) */}
+        {aiEstimate?.candidates && aiEstimate.candidates.length > 0 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+            <CourseCandidatesView
+              candidates={aiEstimate.candidates}
+              selectedCourse={aiEstimate.selectedCandidateCourse}
+              userSelectedConfirmed={aiEstimate.userSelectedConfirmed}
+              onSelectCourse={(course) => {
+                if (onSelectCandidateCourse) {
+                  onSelectCandidateCourse(course);
+                }
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Full Student List Table */}

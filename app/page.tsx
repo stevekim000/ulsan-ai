@@ -12,7 +12,7 @@ import TeacherCommandView from "@/components/TeacherCommandView";
 import NotificationToast, { ToastNotification } from "@/components/NotificationToast";
 import { Student, RescueTimelineEvent, AIEstimateResult } from "@/types/rescue";
 import { getStoredStudents, getStoredTimeline, saveStudents } from "@/lib/storage";
-import { DEFAULT_HIKING_TRAIL } from "@/lib/mountainData";
+import { DEFAULT_HIKING_TRAIL, TrailName } from "@/lib/mountainData";
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"student" | "teacher">("student");
@@ -74,7 +74,7 @@ export default function HomePage() {
     const newEvent: RescueTimelineEvent = {
       id: "tl-" + Date.now(),
       timestamp: Date.now(),
-      title: `AI 위치 특정 성공: ${result.matchedPOI?.name}`,
+      title: `AI 위치 특정: ${result.matchedPOI?.name || "분산 후보 도출"}`,
       content: result.timelineExplanation,
       type: "ai_analysis",
       actor: "메아리 AI 엔진",
@@ -84,9 +84,38 @@ export default function HomePage() {
     // 실시간 토스트 알림 발송
     addNotification({
       type: "ai_analysis",
-      title: "AI 음성 위치 특정 성공",
-      message: `[${result.matchedPOI?.name}] 반경 ${result.radiusMeters}m 이내로 조난 학생 위치 특정 완료!`,
+      title: "AI 음성 위치 특정",
+      message: `[${result.matchedPOI?.name || "한라산 탐방로"}] 반경 ${result.radiusMeters}m 특정 완료`,
     });
+  };
+
+  const handleSelectCandidateCourse = (course: TrailName) => {
+    if (!aiEstimate) return;
+    const cand = aiEstimate.candidates?.find((c) => c.course === course);
+    const updatedCandidates = aiEstimate.candidates?.map((c) => ({
+      ...c,
+      isSelectedByUser: c.course === course,
+    }));
+    const updated: AIEstimateResult = {
+      ...aiEstimate,
+      selectedCandidateCourse: course,
+      userSelectedConfirmed: true,
+      candidates: updatedCandidates,
+      estimatedLat: cand ? cand.coordinates.lat : aiEstimate.estimatedLat,
+      estimatedLng: cand ? cand.coordinates.lng : aiEstimate.estimatedLng,
+      matchedPOI: cand ? {
+        id: `candidate-${course}`,
+        name: `${course} 코스 ${cand.keyLandmark}`,
+        type: "signpost",
+        altitude: aiEstimate.extractedAltitude || 1500,
+        lat: cand.coordinates.lat,
+        lng: cand.coordinates.lng,
+        description: cand.estimatedArea,
+        keywords: [course, cand.keyLandmark],
+      } : aiEstimate.matchedPOI,
+      matchedReason: `탐방객이 [${course} 코스]를 직접 선택함 (${cand?.estimatedArea || course}). 실측 검증 전이므로 신뢰도는 ${aiEstimate.confidence}%로 유지하고 우선 타깃 관제.`,
+    };
+    handleAiAnalysisDone(updated);
   };
 
   if (!isMounted) {
@@ -161,6 +190,8 @@ export default function HomePage() {
         {activeTab === "student" && (
           <StudentSosView
             onAiAnalysisDone={handleAiAnalysisDone}
+            aiEstimate={aiEstimate}
+            students={students}
           />
         )}
 
@@ -169,6 +200,7 @@ export default function HomePage() {
             students={students}
             aiEstimate={aiEstimate}
             onNotification={addNotification}
+            onSelectCandidateCourse={handleSelectCandidateCourse}
           />
         )}
       </main>

@@ -19,9 +19,14 @@ import {
   MessageSquareText,
   Send,
   AlertTriangle,
+  Layers,
+  Image,
 } from "lucide-react";
 import { analyzeVoiceEnvironment } from "@/lib/aiLocationEngine";
 import { AIEstimateResult } from "@/types/rescue";
+import { TrailName } from "@/lib/mountainData";
+import VisualIllustration from "@/components/VisualIllustration";
+import CourseCandidatesView from "@/components/CourseCandidatesView";
 
 interface VoiceLocationAnalyzerProps {
   onAnalysisComplete: (result: AIEstimateResult) => void;
@@ -36,14 +41,24 @@ interface SamplePrompt {
 
 const SAMPLE_VOICE_PROMPTS: SamplePrompt[] = [
   {
-    tag: "⚠️ 단일 정보 (고도 표지판)",
-    course: "정보부족확인",
-    text: "해발 1500m 표지판이 보여요.",
+    tag: "📍 1단계: 성판악 1-24",
+    course: "성판악",
+    text: "선생님, 친구들이랑 떨어졌는데 성판악 1-24 진달래밭 대피소 건물 근처이고 해발 1500m 표지석이 보여요.",
   },
   {
-    tag: "⚠️ 단일 정보 (지형만)",
-    course: "정보부족확인",
-    text: "가파른 바위 너덜길이에요.",
+    tag: "⛰️ 3단계: 병풍바위",
+    course: "영실",
+    text: "주변에 병풍바위가 보이고 안개가 심해요.",
+  },
+  {
+    tag: "🧭 4단계: 영실 해발 1500m",
+    course: "영실",
+    text: "영실코스 해발 1500m 지점인데 안개가 너무 심해요.",
+  },
+  {
+    tag: "⚠️ 4-1단계: 해발 1500m만 (분산)",
+    course: "분산후보",
+    text: "해발 1500m 표지판이 보여요.",
   },
   {
     tag: "🚨 추가 제시 불가 (단일추정)",
@@ -51,42 +66,17 @@ const SAMPLE_VOICE_PROMPTS: SamplePrompt[] = [
     text: "해발 1500m 표지판이 보여요. 안개가 너무 심해서 더 이상 보이는 게 없어요.",
   },
   {
-    tag: "🌐 키워드 없음 (인터넷 수집)",
+    tag: "⚡ 단서 모순 (성판악+영실)",
+    course: "모순검증",
+    text: "성판악 1-24 표지판이 보이는데 주변에 영실 병풍바위가 있어요.",
+  },
+  {
+    tag: "🌐 랜드마크 부재 (인터넷수집)",
     course: "인터넷수집",
-    text: "선생님, 친구들을 놓쳤어요. 표지판은 안 보이고 주변에 붉은색 기와지붕 건물이랑 기상 레이더 같은 하얀 돔이 멀리 보여요.",
+    text: "표지판은 안 보이고 바닥에 철제 모노레일 레일이 깔려있고 옆에 커다란 용암 석굴이 있어요.",
   },
   {
-    tag: "🌐 키워드 없음 (모노레일/석굴)",
-    course: "인터넷수집",
-    text: "어딘지 모르겠는데 바닥에 철제 모노레일 레일이 깔려있고 옆에 커다란 용암 석굴이 있어요. 비가 너무 많이 와요.",
-  },
-  {
-    tag: "영실 1-14",
-    course: "영실",
-    text: "영실 코스로 올라가다 친구들을 놓쳤어요. 방금 영실 1-14 오백나한 조망터 지나서 구상나무 숲길 쪽인데 안개가 너무 짙어요.",
-  },
-  {
-    tag: "성판악 1-24",
-    course: "성판악",
-    text: "선생님, 친구들이랑 떨어졌는데 성판악 1-24 진달래밭 대피소 건물 근처이고 해발 1500m 표지석이 보여요.",
-  },
-  {
-    tag: "관음사 2-23",
-    course: "관음사",
-    text: "관음사 코스로 하산하다 발목을 삐었어요. 표지판에 관음사 2-23 삼각봉 대피소 앞이라고 써있고 바람이 엄청 불어요.",
-  },
-  {
-    tag: "어리목 3-15",
-    course: "어리목",
-    text: "어리목으로 하산하다 만세동산 전망대 지나 사제비샘 방향에서 길을 잃었어요. 표지목 3-15가 보여요.",
-  },
-  {
-    tag: "돈내코 5-20",
-    course: "돈내코",
-    text: "돈내코 코스 남벽분기점 가기 전 평궤 대피소 근처에서 친구들과 떨어졌어요. 해발 1450미터 팻말이 있어요.",
-  },
-  {
-    tag: "국가지점번호",
+    tag: "🔢 국가지점번호",
     course: "지점번호",
     text: "노란색 조난 표지판에 국가지점번호 '다라 0155 8122' 라고 적혀있어요! 살려주세요.",
   },
@@ -106,6 +96,7 @@ export default function VoiceLocationAnalyzer({
   const [keySaved, setKeySaved] = useState<boolean>(false);
   const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
   const [textInput, setTextInput] = useState<string>("");
+  const [showLandmarkGallery, setShowLandmarkGallery] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -235,19 +226,65 @@ export default function VoiceLocationAnalyzer({
       const data: AIEstimateResult = await res.json();
       setResult(data);
       setIsAnalyzing(false);
-      if (!data.isInsufficientInfo) {
-        onAnalysisComplete(data);
-      }
+      onAnalysisComplete(data);
     } catch (err) {
       console.warn("Falling back to local NLP engine:", err);
       // 2. 네트워크 장애/두절 시 즉시 온디바이스 로컬 AI로 안전하게 Fallback (순수 음성 분석)
       const fallbackResult = analyzeVoiceEnvironment(textToAnalyze, forceJudgment);
       setResult(fallbackResult);
       setIsAnalyzing(false);
-      if (!fallbackResult.isInsufficientInfo) {
-        onAnalysisComplete(fallbackResult);
-      }
+      onAnalysisComplete(fallbackResult);
     }
+  };
+
+  const handleSelectCandidateCourse = (courseId: TrailName) => {
+    if (!result) return;
+    const candidate = result.candidates?.find((c) => c.course === courseId);
+    const updatedCandidates = result.candidates?.map((c) => ({
+      ...c,
+      isSelectedByUser: c.course === courseId,
+    }));
+    // 사용자 선택이 위치 추정에 단서로 추가되나, 신뢰도를 98%로 강제 조작하지 않고 실제 위치 신뢰도와 사용자 선택을 분리 표기
+    const updatedResult: AIEstimateResult = {
+      ...result,
+      selectedCandidateCourse: courseId,
+      userSelectedConfirmed: true,
+      candidates: updatedCandidates,
+      estimatedLat: candidate ? candidate.coordinates.lat : result.estimatedLat,
+      estimatedLng: candidate ? candidate.coordinates.lng : result.estimatedLng,
+      matchedPOI: candidate ? {
+        id: `candidate-${courseId}`,
+        name: `${courseId} 코스 ${candidate.keyLandmark}`,
+        type: "signpost",
+        altitude: result.extractedAltitude || 1500,
+        lat: candidate.coordinates.lat,
+        lng: candidate.coordinates.lng,
+        description: candidate.estimatedArea,
+        keywords: [courseId, candidate.keyLandmark],
+      } : result.matchedPOI,
+      matchedReason: `탐방객이 [${courseId} 코스]를 직접 선택함 (${candidate?.estimatedArea || courseId}). 실측 검증 전이므로 신뢰도는 ${result.confidence}%로 유지하고 우선 타깃 관제.`,
+    };
+    setResult(updatedResult);
+    onAnalysisComplete(updatedResult);
+  };
+
+  const handleFocusCandidate = (candidate: any) => {
+    if (!result) return;
+    const updatedResult: AIEstimateResult = {
+      ...result,
+      selectedCandidateCourse: candidate.course,
+      estimatedLat: candidate.coordinates.lat,
+      estimatedLng: candidate.coordinates.lng,
+    };
+    setResult(updatedResult);
+    onAnalysisComplete(updatedResult);
+  };
+
+  const handleSelectLandmarkFromGallery = (lm: any) => {
+    const promptText = `주변에 ${lm.name}이 보이고 고도는 약 ${lm.altitude} 근처예요.`;
+    setTextInput(promptText);
+    setTranscript(promptText);
+    runAIAnalysis(promptText);
   };
 
   const handleAddMoreInfo = () => {
@@ -507,6 +544,33 @@ export default function VoiceLocationAnalyzer({
         </div>
       </div>
 
+      {/* Visual Landmark SVG Gallery Collapsible Section */}
+      <div className="space-y-3 pt-1 border-t border-slate-800/80">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setShowLandmarkGallery(!showLandmarkGallery)}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
+              showLandmarkGallery
+                ? "bg-blue-600/20 text-blue-300 border-blue-500/50 shadow-lg shadow-blue-500/10"
+                : "bg-slate-950 text-slate-300 border-slate-800 hover:text-white hover:border-slate-700"
+            }`}
+          >
+            <Layers className="w-4 h-4 text-blue-400" />
+            <span>시각적 지형 랜드마크 SVG 갤러리 (12종) {showLandmarkGallery ? "접기 ▲" : "열기 ▼"}</span>
+          </button>
+          <span className="text-[10px] text-slate-400 font-mono">
+            인라인 벡터 SVG (외부 이미지 무의존)
+          </span>
+        </div>
+
+        {showLandmarkGallery && (
+          <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 animate-in fade-in duration-300">
+            <VisualIllustration onSelectLandmark={handleSelectLandmarkFromGallery} />
+          </div>
+        )}
+      </div>
+
       {/* AI Analysis Result Card */}
       {isAnalyzing && (
         <div className="p-6 bg-blue-950/40 border border-blue-500/30 rounded-2xl text-center space-y-3 animate-pulse">
@@ -586,6 +650,19 @@ export default function VoiceLocationAnalyzer({
               <span>더 이상 정보 없음 ➜ 현재 정보로 즉시 위치 판단</span>
             </button>
           </div>
+
+          {/* 5대 코스 후보군 비교 카드 (정보 부족 시 고도 단일 단서 분산 후보 표시) */}
+          {result.candidates && result.candidates.length > 0 && (
+            <div className="pt-4 border-t border-amber-500/30">
+              <CourseCandidatesView
+                candidates={result.candidates}
+                selectedCourse={result.selectedCandidateCourse}
+                userSelectedConfirmed={result.userSelectedConfirmed}
+                onSelectCourse={handleSelectCandidateCourse}
+                onFocusMap={handleFocusCandidate}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -904,6 +981,19 @@ export default function VoiceLocationAnalyzer({
               ))}
             </ul>
           </div>
+
+          {/* 5대 코스 후보군 비교 카드 (정상 결과 내 후보 표시) */}
+          {result.candidates && result.candidates.length > 0 && (
+            <div className="pt-3 border-t border-slate-800">
+              <CourseCandidatesView
+                candidates={result.candidates}
+                selectedCourse={result.selectedCandidateCourse}
+                userSelectedConfirmed={result.userSelectedConfirmed}
+                onSelectCourse={handleSelectCandidateCourse}
+                onFocusMap={handleFocusCandidate}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

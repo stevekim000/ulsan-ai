@@ -1,28 +1,31 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Student, AIEstimateResult } from "@/types/rescue";
-import { HALLASAN_LANDMARKS, HALLASAN_TRAILS } from "@/lib/mountainData";
+import { Student, AIEstimateResult, LocationCandidate } from "@/types/rescue";
+import { HALLASAN_LANDMARKS, HALLASAN_TRAILS, TrailName } from "@/lib/mountainData";
 
 interface MountainMapProps {
   students: Student[];
   selectedStudent?: Student;
   aiEstimate?: AIEstimateResult | null;
   height?: string;
+  selectedCourse?: TrailName;
+  onSelectCandidateCourse?: (course: TrailName) => void;
 }
 
 export default function MountainMap({
   students,
   selectedStudent,
   aiEstimate,
-  height = "460px",
+  height = "480px",
+  selectedCourse,
+  onSelectCandidateCourse,
 }: MountainMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const layerGroupRef = useRef<any>(null);
 
   useEffect(() => {
-    // Dynamic import of Leaflet on client side
     let isMounted = true;
 
     async function initMap() {
@@ -38,7 +41,6 @@ export default function MountainMap({
         document.head.appendChild(link);
       }
 
-      // Leaflet 컨테이너 재초기화 에러 방지
       if ((mapContainerRef.current as any)._leaflet_id) {
         (mapContainerRef.current as any)._leaflet_id = null;
       }
@@ -75,13 +77,13 @@ export default function MountainMap({
     };
   }, []);
 
-  // 학생 데이터나 AI 결과가 바뀔 때 레이어 갱신
+  // 학생 데이터나 AI 결과, 선택된 코스가 바뀔 때 레이어 갱신
   useEffect(() => {
     if (!mapInstanceRef.current || !layerGroupRef.current) return;
     import("leaflet").then((mod) => {
       renderMapLayers(mod.default);
     });
-  }, [students, selectedStudent, aiEstimate]);
+  }, [students, selectedStudent, aiEstimate, selectedCourse]);
 
   const renderMapLayers = (L: any) => {
     if (!layerGroupRef.current || !mapInstanceRef.current) return;
@@ -89,11 +91,12 @@ export default function MountainMap({
 
     // 1. 한라산 5개 코스별 등산로 폴리라인 그리기
     Object.entries(HALLASAN_TRAILS).forEach(([trailName, trail]) => {
+      const isSelectedCourse = selectedCourse === trailName;
       const trailCoords = trail.keyPoints.map((p) => [p.lat, p.lng]);
       const polyline = L.polyline(trailCoords as [number, number][], {
         color: trail.color,
-        weight: 4,
-        opacity: 0.85,
+        weight: isSelectedCourse ? 6 : 4,
+        opacity: isSelectedCourse ? 1.0 : 0.8,
         smoothFactor: 1,
       }).addTo(layerGroupRef.current);
 
@@ -103,7 +106,48 @@ export default function MountainMap({
       );
     });
 
-    // 2. 한라산 5개 코스 주요 랜드마크 POI 마커 추가
+    // 2. 해발 1,500m 고도 구간 실제 지형 데이터 기반 하이라이트
+    // (5개 코스에서 해발 1450m~1550m 사이의 실제 키포인트 구간을 청록색 점선 링으로 강조)
+    const contourPoints1500: Array<{ lat: number; lng: number; name: string; course: string }> = [
+      { lat: 33.3711, lng: 126.5678, name: "성판악 1500m (진달래밭 대피소)", course: "성판악" },
+      { lat: 33.3527, lng: 126.4751, name: "영실 1500m (오백나한 조망터)", course: "영실" },
+      { lat: 33.3871, lng: 126.5270, name: "관음사 1500m (삼각봉 대피소)", course: "관음사" },
+      { lat: 33.3697, lng: 126.4731, name: "어리목 1550m (사제비동산)", course: "어리목" },
+      { lat: 33.3465, lng: 126.5432, name: "돈내코 1530m (넓은드르)", course: "돈내코" },
+    ];
+
+    contourPoints1500.forEach((cp) => {
+      const ringHtml = `
+        <div style="
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: rgba(14, 165, 233, 0.4);
+          border: 2px solid #0284c7;
+          box-shadow: 0 0 8px #0284c7;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          color: white;
+          font-weight: 900;
+        ">
+          15
+        </div>
+      `;
+      const ringIcon = L.divIcon({
+        className: "contour-1500-ring",
+        html: ringHtml,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+      });
+      const ringMarker = L.marker([cp.lat, cp.lng], { icon: ringIcon }).addTo(layerGroupRef.current);
+      ringMarker.bindTooltip(`<b>${cp.name}</b><br/><span style="color:#0284c7;">실제 해발 1,500m 등고선 통과 지점</span>`, {
+        direction: "top",
+      });
+    });
+
+    // 3. 한라산 5개 코스 주요 랜드마크 POI 마커 추가
     HALLASAN_LANDMARKS.forEach((poi) => {
       const isSummit = poi.type === "ridge" || poi.name.includes("정상");
       const isShelter = poi.type === "shelter";
@@ -112,13 +156,13 @@ export default function MountainMap({
         <div style="
           background-color: ${isSummit ? "#dc2626" : isShelter ? "#2563eb" : "#059669"};
           color: white;
-          width: 26px;
-          height: 26px;
+          width: 24px;
+          height: 24px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: bold;
           border: 2px solid white;
           box-shadow: 0 2px 6px rgba(0,0,0,0.35);
@@ -130,8 +174,8 @@ export default function MountainMap({
       const customIcon = L.divIcon({
         className: "custom-poi-marker",
         html: iconHtml,
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       });
 
       const marker = L.marker([poi.lat, poi.lng], { icon: customIcon }).addTo(
@@ -153,15 +197,13 @@ export default function MountainMap({
       `);
     });
 
-    // 3. 학생 궤적(locationHistory) 표시 (조난 학생의 이동 경로를 점선으로 시각화)
+    // 4. 학생 궤적(locationHistory) 표시 (조난 학생은 붉은 점선)
     students.forEach((std) => {
       const isEmergency = std.status === "emergency";
 
-      // 궤적 폴리라인 + 포인트 마커 (이동 기록이 있는 학생만)
       if (std.locationHistory && std.locationHistory.length > 1) {
         const historyCoords = std.locationHistory.map((p) => [p.lat, p.lng]);
 
-        // 이동 궤적 점선
         L.polyline(historyCoords as [number, number][], {
           color: isEmergency ? "#ef4444" : "#10b981",
           weight: 3,
@@ -169,7 +211,6 @@ export default function MountainMap({
           opacity: 0.7,
         }).addTo(layerGroupRef.current);
 
-        // 각 포인트에 시간/고도 마커 추가
         std.locationHistory.forEach((point, idx) => {
           const isLast = idx === std.locationHistory.length - 1;
           const timeStr = new Date(point.timestamp).toLocaleTimeString("ko-KR", {
@@ -217,7 +258,7 @@ export default function MountainMap({
       }
     });
 
-    // 4. 학생 마커 표시 (조난 학생은 붉은 펄스 효과)
+    // 5. 학생 마커 표시
     students.forEach((std) => {
       const isEmergency = std.status === "emergency";
       const lat = std.lastLocation.lat;
@@ -279,21 +320,92 @@ export default function MountainMap({
           <p style="margin: 2px 0 0; font-size: 11px; color: #64748b;">
             측정 고도: <b>${std.lastLocation.altitude || "측정중"}m</b>
           </p>
-          ${std.locationHistory && std.locationHistory.length > 0 ? `
-            <p style="margin: 2px 0 0; font-size: 10px; color: #94a3b8;">
-              궤적 기록: ${std.locationHistory.length}개 포인트
-            </p>
-          ` : ""}
         </div>
       `);
     });
 
-    // 4. AI 위치 특정 결과 (수색 추천 반경 원형 표시)
+    // 6. 분산 후보군 마커 표시 (핵심 기능: 5개 코스 후보 순위 및 점수 뱃지 표시)
+    if (aiEstimate && aiEstimate.candidates && aiEstimate.candidates.length > 0) {
+      aiEstimate.candidates.forEach((cand) => {
+        const isTarget = selectedCourse === cand.course;
+
+        const candHtml = `
+          <div style="position: relative; cursor: pointer;">
+            ${isTarget ? `<div style="
+                position: absolute;
+                top: -6px; left: -6px;
+                width: 44px; height: 44px;
+                border-radius: 50%;
+                background: rgba(16, 185, 129, 0.4);
+                animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+              "></div>` : ""}
+            <div style="
+              background-color: ${isTarget ? "#059669" : "#1e293b"};
+              color: white;
+              padding: 3px 6px;
+              border-radius: 8px;
+              font-size: 10px;
+              font-weight: 800;
+              white-space: nowrap;
+              border: 2px solid ${isTarget ? "#10b981" : "#f59e0b"};
+              box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+              display: flex;
+              align-items: center;
+              gap: 3px;
+            ">
+              <span style="background:#f59e0b; color:#0f172a; padding:1px 3px; border-radius:4px; font-size:9px;">#${cand.rank}</span>
+              <span>${cand.course}</span>
+              <span style="color:#fbbf24; font-size:9px;">(${cand.candidateScore}점)</span>
+            </div>
+          </div>
+        `;
+
+        const candIcon = L.divIcon({
+          className: "custom-candidate-marker",
+          html: candHtml,
+          iconSize: [85, 22],
+          iconAnchor: [42, 11],
+        });
+
+        const candMarker = L.marker([cand.coordinates.lat, cand.coordinates.lng], { icon: candIcon })
+          .addTo(layerGroupRef.current);
+
+        candMarker.bindPopup(`
+          <div style="font-family: sans-serif; padding: 4px; min-width: 180px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <b style="color:${isTarget ? "#059669" : "#d97706"}; font-size:12px;">
+                후보 ${cand.rank}위: ${cand.course} 코스
+              </b>
+              <span style="font-size:10px; background:#fef3c7; color:#92400e; padding:1px 4px; border-radius:4px; font-weight:bold;">
+                후보점수 ${cand.candidateScore}점
+              </span>
+            </div>
+            <p style="margin: 0; font-size: 11px; color: #1e293b;">
+              <b>대표 지점:</b> ${cand.keyLandmark}
+            </p>
+            <p style="margin: 2px 0 0; font-size: 11px; color: #475569;">
+              <b>추정 구역:</b> ${cand.estimatedArea}
+            </p>
+            <p style="margin: 2px 0 0; font-size: 10px; color: #64748b;">
+              위치 신뢰도: <b>${cand.locationConfidence}%</b> (단일 고도 단서)
+            </p>
+          </div>
+        `);
+
+        candMarker.on("click", () => {
+          if (onSelectCandidateCourse) {
+            onSelectCandidateCourse(cand.course);
+          }
+        });
+      });
+    }
+
+    // 7. AI 위치 특정 결과 (수색 추천 반경 원형 표시)
     if (aiEstimate) {
       const circle = L.circle([aiEstimate.estimatedLat, aiEstimate.estimatedLng], {
-        color: "#dc2626",
-        fillColor: "#ef4444",
-        fillOpacity: 0.25,
+        color: aiEstimate.isAltitudeOnlyDispersed ? "#f59e0b" : "#dc2626",
+        fillColor: aiEstimate.isAltitudeOnlyDispersed ? "#fbbf24" : "#ef4444",
+        fillOpacity: aiEstimate.isAltitudeOnlyDispersed ? 0.15 : 0.25,
         radius: aiEstimate.radiusMeters,
         weight: 2,
         dashArray: "4, 6",
@@ -301,8 +413,8 @@ export default function MountainMap({
 
       circle.bindPopup(`
         <div style="font-family: sans-serif; padding: 4px;">
-          <p style="margin: 0; font-weight: bold; color: #dc2626; font-size: 13px;">
-            🤖 AI 특정 수색 타깃 영역
+          <p style="margin: 0; font-weight: bold; color: ${aiEstimate.isAltitudeOnlyDispersed ? "#d97706" : "#dc2626"}; font-size: 13px;">
+            ${aiEstimate.isAltitudeOnlyDispersed ? "⚠️ AI 고도 분산 후보 대역 (불확실성 명시)" : "🤖 AI 특정 수색 타깃 영역"}
           </p>
           <p style="margin: 2px 0; font-size: 11px; color: #334155;">
             중심: <b>${aiEstimate.matchedPOI?.name}</b>
@@ -313,12 +425,15 @@ export default function MountainMap({
         </div>
       `);
 
-      // AI 특정 위치로 지도 시점 부드럽게 이동
-      mapInstanceRef.current.flyTo(
-        [aiEstimate.estimatedLat, aiEstimate.estimatedLng],
-        15,
-        { duration: 1.2 }
-      );
+      // 맵 이동: 선택된 코스가 있으면 해당 코스 좌표로, 없으면 추정 좌표로
+      const targetLat = selectedCourse && aiEstimate.candidates
+        ? (aiEstimate.candidates.find((c) => c.course === selectedCourse)?.coordinates.lat || aiEstimate.estimatedLat)
+        : aiEstimate.estimatedLat;
+      const targetLng = selectedCourse && aiEstimate.candidates
+        ? (aiEstimate.candidates.find((c) => c.course === selectedCourse)?.coordinates.lng || aiEstimate.estimatedLng)
+        : aiEstimate.estimatedLng;
+
+      mapInstanceRef.current.flyTo([targetLat, targetLng], 14, { duration: 1.0 });
     }
   };
 
@@ -348,16 +463,16 @@ export default function MountainMap({
           <span>어리목</span>
         </div>
         <div className="flex items-center space-x-1">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: "#E91E63" }}></span>
+          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: "#00BCD4" }}></span>
           <span>돈내코</span>
+        </div>
+        <div className="flex items-center space-x-1 border-l border-slate-700 pl-2">
+          <span className="w-3 h-3 rounded-full bg-sky-500/30 border border-sky-400 inline-flex items-center justify-center text-[7px] text-white font-bold">15</span>
+          <span>1,500m 고도선</span>
         </div>
         <div className="hidden sm:flex items-center space-x-1 border-l border-slate-700 pl-2">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse inline-block"></span>
           <span>조난 학생</span>
-        </div>
-        <div className="hidden sm:flex items-center space-x-1">
-          <span className="w-3.5 h-2.5 border border-red-500 border-dashed bg-red-500/30 inline-block rounded"></span>
-          <span>AI 특정 영역</span>
         </div>
       </div>
     </div>

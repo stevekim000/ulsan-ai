@@ -7,7 +7,7 @@ import {
   HALLASAN_LANDMARKS,
   TrailName,
 } from "@/lib/mountainData";
-import { analyzeVoiceEnvironment } from "@/lib/aiLocationEngine";
+import { analyzeVoiceEnvironment, generateDispersedAltitudeCandidates } from "@/lib/aiLocationEngine";
 import {
   detectMountainKeywords,
   extractSearchQueriesFromVoice,
@@ -78,35 +78,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 0-1. 정보 차원(해발고도, 주변 지형, 가까운 랜드마크) 충분성 평가
-    const evalResult = evaluateInfoDimensions(voiceTranscript, !!forceJudgment);
+    // 온디바이스 로컬 엔진으로 1~5단계 정밀 위치 추정 선행 분석
+    const localResult = analyzeVoiceEnvironment(voiceTranscript, !!forceJudgment);
+    const isSingleInfoJudgment = localResult.isSingleInfoJudgment;
+    const singleDimName = localResult.singleInfoDimension || "단일 정보";
 
-    // 해발고도, 주변 지형, 랜드마크 중 단 1개만 주어지고, 추가 제시 불가 상황도 아니라면 정보 부족 안내 반환
-    if (evalResult.isInsufficient) {
-      return NextResponse.json({
-        isInsufficientInfo: true,
-        analyzedText: voiceTranscript,
-        insufficientMessage: evalResult.insufficientMessage,
-        guidePrompt: evalResult.guidePrompt,
-        presentDimensions: evalResult.presentDimensions,
-        missingDimensions: evalResult.missingDimensions,
-        extractedAltitude: evalResult.detectedAltitude,
-        extractedLandmarks: [...evalResult.detectedTerrains, ...evalResult.detectedLandmarks],
-        estimatedLat: 33.3605,
-        estimatedLng: 126.5532,
-        confidence: 35,
-        radiusMeters: 200,
-        urgencyLevel: "high",
-        aiRecommendations: [
-          "정보 부족: 주변 지형 또는 가까운 랜드마크를 추가로 제보하도록 안내하세요.",
-          "추가 정보 제시가 불가능할 경우 [현재 정보로 즉시 위치 판단]을 선택하세요."
-        ],
-        timelineExplanation: evalResult.insufficientMessage || "단일 정보만 확인되어 추가 정보 수집 대기 중입니다."
-      });
+    // 고도 단일 정보 또는 정보 부족 상태인 경우 (4-1단계 5대 코스 분산 후보군 포함) 즉시 반환
+    if (localResult.isInsufficientInfo) {
+      return NextResponse.json(localResult);
     }
 
-    const isSingleInfoJudgment = evalResult.dimensionCount === 1 && evalResult.isCannotProvideMore;
-    const singleDimName = evalResult.presentDimensions[0] || "단일 정보";
+    // 1단계 공인 표지목(98%) 또는 2단계 국가지점번호(99%) 정밀 코드가 일치한 경우 즉시 반환 (단서 모순 시 표지목 최우선)
+    if (localResult.confidence >= 98) {
+      return NextResponse.json(localResult);
+    }
 
     const apiKey = userApiKey || process.env.GEMINI_API_KEY;
 
@@ -382,10 +367,16 @@ ${trailData}
           singleInfoDimension: isSingleInfoJudgment ? singleDimName : undefined,
         };
 
+        if (estimateResult.extractedAltitude && (!parsed.matchedTrail || isSingleInfoJudgment)) {
+          estimateResult.candidates = generateDispersedAltitudeCandidates(estimateResult.extractedAltitude, voiceTranscript);
+          estimateResult.isAltitudeOnlyDispersed = true;
+          estimateResult.confidence = 35;
+        }
+
         if (isSingleInfoJudgment) {
           estimateResult.radiusMeters = Math.max(estimateResult.radiusMeters, 120);
-          estimateResult.confidence = Math.min(estimateResult.confidence, 65);
-          estimateResult.matchedReason = `단일 단서 [${singleDimName}] 기반 긴급 추정 (추가 정보 제시 불가 확인) ➜ ${estimateResult.matchedPOI?.name || '유력 지점'} 일대 특정`;
+          estimateResult.confidence = Math.min(estimateResult.confidence, 35);
+          estimateResult.matchedReason = `단일 단서 [${singleDimName}] 기반 긴급 추정 (추가 정보 제시 불가 확인) ➜ 특정 코스 단정 배제 및 5대 코스 분산 후보군 도출`;
         }
 
         return NextResponse.json(estimateResult);
@@ -396,7 +387,6 @@ ${trailData}
     }
 
     // 2. Fallback: 오프라인/온디바이스 자연어 처리 엔진 (테스트 모드: GPS 고도 미사용, 순수 음성 단서 분석)
-    const localResult = analyzeVoiceEnvironment(voiceTranscript, !!forceJudgment);
     const localTrailName = (localResult.matchedPOI?.description?.includes("영실") ? "영실" :
       localResult.matchedPOI?.description?.includes("관음사") ? "관음사" :
       localResult.matchedPOI?.description?.includes("어리목") ? "어리목" :

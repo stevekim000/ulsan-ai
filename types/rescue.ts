@@ -54,6 +54,33 @@ export interface TerrainAnalysis {
   comparisonExplanation?: string;// 음성 데이터와 학습 지형 데이터 간 비교 분석 결과
 }
 
+export interface LocationCandidate {
+  rank: number;
+  course: '영실' | '성판악' | '관음사' | '어리목' | '돈내코';
+  candidateScore: number;       // 후보 점수 (0~100%, 초기 균등 20%)
+  locationConfidence: number;   // 위치 신뢰도 (0~100%)
+  estimatedArea: string;        // 추정 위치 또는 구역
+  altitudeRange: string;        // 고도 범위 (예: "1,450m ~ 1,550m")
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  keyLandmark: string;          // 대표 랜드마크 및 대피소
+  reasoning: string;            // 추정 근거
+  matchedClues: string[];       // 일치한 단서
+  unmatchedClues: string[];     // 일치하지 않는 단서
+  additionalQuestions: string[];// 추가로 필요한 질문
+  terrainState: string;         // 주변 지형과 바닥 상태
+  vegetation: string;           // 식생 및 주변 환경
+  elevationFeature: string;     // 해당 고도에서 나타날 수 있는 지형 특징
+  shelterAndKeyPoints: string;  // 관련 대피소와 주요 지점
+  checklist: Array<{
+    text: string;
+    matched: boolean;
+  }>;
+  isSelectedByUser?: boolean;
+}
+
 export interface AIEstimateResult {
   analyzedText: string;
   extractedLandmarks: string[];
@@ -83,6 +110,10 @@ export interface AIEstimateResult {
   missingDimensions?: string[];       // 누락된 정보 차원
   isSingleInfoJudgment?: boolean;     // 추가 정보 제시 불가로 단일 정보 기반 긴급 판정인지 여부
   singleInfoDimension?: string;       // 단일 정보 차원명
+  candidates?: LocationCandidate[];   // 4-1단계: 분산 후보 추정 목록 (5대 코스)
+  selectedCandidateCourse?: '영실' | '성판악' | '관음사' | '어리목' | '돈내코'; // 사용자가 선택한 코스
+  userSelectedConfirmed?: boolean;    // 사용자가 직접 '아! 이 코스 같다!' 선택했는지 여부
+  isAltitudeOnlyDispersed?: boolean;  // 고도만 주어진 분산 후보 모드인지 여부
 }
 
 export interface RescueTimelineEvent {
