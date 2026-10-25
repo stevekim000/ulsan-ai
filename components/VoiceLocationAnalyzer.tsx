@@ -17,7 +17,8 @@ import {
   Search,
   ExternalLink,
   MessageSquareText,
-  Send
+  Send,
+  AlertTriangle,
 } from "lucide-react";
 import { analyzeVoiceEnvironment } from "@/lib/aiLocationEngine";
 import { AIEstimateResult } from "@/types/rescue";
@@ -34,6 +35,16 @@ interface SamplePrompt {
 }
 
 const SAMPLE_VOICE_PROMPTS: SamplePrompt[] = [
+  {
+    tag: "⚠️ 단일 정보 (고도만)",
+    course: "정보부족확인",
+    text: "선생님, 친구들을 놓쳤어요. 주변에 해발 1500m라고 적힌 팻말만 보여요.",
+  },
+  {
+    tag: "🚨 추가 제시 불가 (단일추정)",
+    course: "단일판단",
+    text: "해발 1500미터 팻말 근처예요. 안개가 너무 심해서 더 이상 보이는 게 없어요.",
+  },
   {
     tag: "🌐 키워드 없음 (인터넷 수집)",
     course: "인터넷수집",
@@ -198,7 +209,7 @@ export default function VoiceLocationAnalyzer({
     }
   };
 
-  const runAIAnalysis = async (textToAnalyze: string) => {
+  const runAIAnalysis = async (textToAnalyze: string, forceJudgment = false) => {
     setIsAnalyzing(true);
     try {
       // 1. Google Gemini 1.5 Flash API 라우트 호출 (테스트 모드: 사용자의 GPS 고도 미전송)
@@ -208,6 +219,7 @@ export default function VoiceLocationAnalyzer({
         body: JSON.stringify({
           voiceTranscript: textToAnalyze,
           userApiKey: apiKey.trim() || undefined,
+          forceJudgment,
         }),
       });
 
@@ -218,15 +230,29 @@ export default function VoiceLocationAnalyzer({
       const data: AIEstimateResult = await res.json();
       setResult(data);
       setIsAnalyzing(false);
-      onAnalysisComplete(data);
+      if (!data.isInsufficientInfo) {
+        onAnalysisComplete(data);
+      }
     } catch (err) {
       console.warn("Falling back to local NLP engine:", err);
       // 2. 네트워크 장애/두절 시 즉시 온디바이스 로컬 AI로 안전하게 Fallback (순수 음성 분석)
-      const fallbackResult = analyzeVoiceEnvironment(textToAnalyze);
+      const fallbackResult = analyzeVoiceEnvironment(textToAnalyze, forceJudgment);
       setResult(fallbackResult);
       setIsAnalyzing(false);
-      onAnalysisComplete(fallbackResult);
+      if (!fallbackResult.isInsufficientInfo) {
+        onAnalysisComplete(fallbackResult);
+      }
     }
+  };
+
+  const handleAddMoreInfo = () => {
+    setInputMode("text");
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
   };
 
   return (
@@ -486,8 +512,98 @@ export default function VoiceLocationAnalyzer({
         </div>
       )}
 
-      {result && !isAnalyzing && (
+      {/* ⚠️ 위치 특정 정보 부족 안내 카드 (해발고도/주변지형/랜드마크 중 1개만 제시된 경우) */}
+      {result && !isAnalyzing && result.isInsufficientInfo && (
+        <div className="p-5 bg-gradient-to-br from-amber-950/50 via-slate-900 to-slate-950 border-2 border-amber-500/50 rounded-2xl shadow-2xl space-y-4 animate-in fade-in duration-300">
+          <div className="flex items-start justify-between border-b border-amber-500/30 pb-3">
+            <div className="flex items-center space-x-2.5">
+              <span className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                <AlertTriangle className="w-5 h-5 animate-pulse" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-black text-amber-300">
+                    위치 특정 정보 부족 안내
+                  </h4>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-bold">
+                    단일 정보 감지
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-1">
+                  {result.insufficientMessage}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Detection Status Matrix */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div className="p-3 bg-slate-950/70 border border-emerald-500/30 rounded-xl space-y-1">
+              <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                <span>✅ 현재 확인된 단서:</span>
+              </span>
+              <p className="text-white font-black text-xs">
+                {result.presentDimensions?.join(", ") || "1개 정보"}
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-950/70 border border-amber-500/30 rounded-xl space-y-1">
+              <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                <span>❓ 추가 권장 정보:</span>
+              </span>
+              <p className="text-amber-200 font-bold text-xs">
+                {result.missingDimensions?.join(", ") || "주변 지형 또는 가까운 랜드마크"}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3.5 bg-black/40 border border-amber-500/20 rounded-xl text-xs text-slate-300 space-y-2 leading-relaxed">
+            <p className="whitespace-pre-line text-slate-300 text-[11px]">
+              {result.guidePrompt}
+            </p>
+          </div>
+
+          {/* Action Choice Buttons */}
+          <div className="pt-1 flex flex-col sm:flex-row items-center gap-2.5">
+            <button
+              onClick={handleAddMoreInfo}
+              className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-blue-600/30 transition-all active:scale-95"
+            >
+              <Mic className="w-4 h-4" />
+              <span>추가 정보 덧붙여 말하기 / 입력</span>
+            </button>
+
+            <button
+              onClick={() => runAIAnalysis(transcript || textInput, true)}
+              className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-amber-600/30 transition-all active:scale-95"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>더 이상 정보 없음 ➜ 현재 정보로 즉시 위치 판단</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {result && !isAnalyzing && !result.isInsufficientInfo && (
         <div className="p-5 bg-gradient-to-br from-slate-900 to-blue-950/80 border border-blue-500/40 rounded-2xl shadow-xl space-y-4 animate-in fade-in duration-300">
+          {/* 단일 정보 기반 긴급 추정 배너 (추가 정보 제시 불가 시) */}
+          {result.isSingleInfoJudgment && (
+            <div className="bg-gradient-to-r from-amber-950/80 to-red-950/70 border border-amber-500/50 rounded-xl p-3 flex items-start space-x-2.5 text-xs text-amber-200">
+              <span className="p-1 rounded bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+                <AlertTriangle className="w-4 h-4" />
+              </span>
+              <div className="space-y-0.5">
+                <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                  <span>🚨 단일 정보([{result.singleInfoDimension || '해발고도'}]) 기반 긴급 위치 추정 완료</span>
+                  <span className="text-[10px] bg-red-600/30 text-red-300 border border-red-500/40 px-1.5 py-0.2 rounded font-mono">광역 수색 반경 {result.radiusMeters}m</span>
+                </span>
+                <p className="text-[11px] text-slate-300">
+                  추가 정보를 더 이상 확인할 수 없는 극한 상황으로 확인되어, 확보된 단일 단서를 기반으로 가장 유력한 지점을 추정했습니다.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between border-b border-blue-500/20 pb-3">
             <div className="flex items-center space-x-2">
               <span className="p-1.5 rounded-lg bg-red-500/20 text-red-400">

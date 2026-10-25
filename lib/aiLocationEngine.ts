@@ -15,6 +15,7 @@ import {
   extractSearchQueriesFromVoice,
   getCoreSourceLinksForCourse,
 } from "@/lib/internetSearch";
+import { evaluateInfoDimensions } from "@/lib/infoDimensionEvaluator";
 
 /**
  * 음성 텍스트에서 한국어 숫자 및 고도(m) 표현을 정밀 파싱
@@ -140,11 +141,44 @@ function predictTerrainFromLearnedData(
  */
 export function analyzeVoiceEnvironment(
   voiceTranscript: string,
-  lastGpsAlt?: number
+  forceJudgmentOrLastAlt?: boolean | number
 ): AIEstimateResult {
   const text = voiceTranscript.trim();
   const lowerText = text.toLowerCase();
   const cleanText = text.replace(/\s+/g, '');
+
+  const forceJudgment = typeof forceJudgmentOrLastAlt === "boolean" ? forceJudgmentOrLastAlt : false;
+  const lastGpsAlt = typeof forceJudgmentOrLastAlt === "number" ? forceJudgmentOrLastAlt : undefined;
+
+  // 정보 차원(해발고도, 주변 지형, 가까운 랜드마크) 평가
+  const evalResult = evaluateInfoDimensions(text, forceJudgment);
+
+  // 정보 중 1개만 주어지고, 추가 제시 불가 상황도 아니라면 정보 부족 안내 반환
+  if (evalResult.isInsufficient) {
+    return {
+      analyzedText: text,
+      isInsufficientInfo: true,
+      insufficientMessage: evalResult.insufficientMessage,
+      guidePrompt: evalResult.guidePrompt,
+      presentDimensions: evalResult.presentDimensions,
+      missingDimensions: evalResult.missingDimensions,
+      extractedLandmarks: [...evalResult.detectedTerrains, ...evalResult.detectedLandmarks],
+      extractedAltitude: evalResult.detectedAltitude,
+      estimatedLat: 33.3605,
+      estimatedLng: 126.5532,
+      confidence: 35,
+      radiusMeters: 200,
+      urgencyLevel: 'high',
+      aiRecommendations: [
+        "정보 부족: 주변 지형 또는 가까운 랜드마크를 추가로 제보하도록 안내하세요.",
+        "정보 추가가 불가능할 경우 [현재 정보로 즉시 위치 판단]을 선택하세요."
+      ],
+      timelineExplanation: evalResult.insufficientMessage || "단일 정보만 확인되어 추가 정보 수집 대기 중입니다."
+    };
+  }
+
+  const isSingleInfoJudgment = evalResult.dimensionCount === 1 && evalResult.isCannotProvideMore;
+  const singleDimName = evalResult.presentDimensions[0] || "단일 정보";
 
   // 0단계: 표지판/코스/랜드마크 키워드 존재 여부 검출
   const keywordCheck = detectMountainKeywords(text);
@@ -638,10 +672,28 @@ export function analyzeVoiceEnvironment(
     confidence,
     radiusMeters,
     urgencyLevel: bestMatch.kp.alt >= 1600 || text.includes("다쳤") ? 'critical' : 'high',
-    matchedReason: isInternetSearchUsed
+    isSingleInfoJudgment,
+    singleInfoDimension: isSingleInfoJudgment ? singleDimName : undefined,
+    matchedReason: isSingleInfoJudgment
+      ? `단일 단서 [${singleDimName}] 기반 긴급 추정 (추가 정보 제시 불가 확인) ➜ ${bestMatch.kp.trail} 코스 [${bestMatch.kp.name}] 일대 추정`
+      : isInternetSearchUsed
       ? `키워드 부재로 인터넷 실시간 정보 수집 가동: 시각적 단서 교차 분석으로 ${bestMatch.kp.trail} 코스 [${bestMatch.kp.name}] 일대 추정`
       : `음성 단서와 학습된 한라산 지형 데이터 종합 대조로 ${bestMatch.kp.trail} 코스 ${bestMatch.kp.name} 특정`,
-    reasoningSteps,
+    reasoningSteps: isSingleInfoJudgment
+      ? [
+          {
+            icon: "⚠️",
+            title: "단일 정보 기반 긴급 추정 모드 가동",
+            desc: `추가 정보 제시 불가 상황 확인 → 확보된 단일 단서 [${singleDimName}]를 바탕으로 탐방로 후보군 매핑`,
+          },
+          ...reasoningSteps.slice(1, 3),
+          {
+            icon: "🎯",
+            title: `광역 수색 반경 ${isSingleInfoJudgment ? 120 : radiusMeters}m 확정`,
+            desc: `단일 정보 추정의 불확실성을 고려하여 안전 수색 반경을 ${isSingleInfoJudgment ? 120 : radiusMeters}m(신뢰도 60%)로 광역 설정`,
+          },
+        ]
+      : reasoningSteps,
     terrainAnalysis: terrain,
     isInternetSearchUsed,
     internetSearchQueries,
@@ -651,10 +703,12 @@ export function analyzeVoiceEnvironment(
     coreSourceLinks: isInternetSearchUsed ? getCoreSourceLinksForCourse(bestMatch.kp.trail) : undefined,
     aiRecommendations: [
       `학생에게 현재 위치(${bestMatch.kp.name} 인근)에서 절대 이동하지 말고 비바람을 피하도록 안내하세요.`,
-      `수색팀을 한라산 ${bestMatch.kp.trail} 코스 [${bestMatch.kp.name}] 반경 ${radiusMeters}m로 집중 투입하세요.`,
+      `수색팀을 한라산 ${bestMatch.kp.trail} 코스 [${bestMatch.kp.name}] 반경 ${isSingleInfoJudgment ? 120 : radiusMeters}m로 집중 투입하세요.`,
       `단말기 배터리 절전을 위해 비상 절전 모드를 즉시 켜도록 지시하세요.`
     ],
-    timelineExplanation: isInternetSearchUsed
+    timelineExplanation: isSingleInfoJudgment
+      ? `추가 정보 수집이 불가능한 긴급 상황으로, 확보된 단일 단서 [${singleDimName}]를 바탕으로 ${bestMatch.kp.trail} 코스 ${bestMatch.kp.name} 인근(반경 120m)으로 위치를 추정했습니다.`
+      : isInternetSearchUsed
       ? `음성에서 명시적 키워드가 없어 인터넷 실시간 정보 수집을 가동, 시각적 단서를 대조하여 ${bestMatch.kp.trail} 코스 ${bestMatch.kp.name}(해발 ${bestMatch.kp.alt}m 부근)으로 위치를 추정했습니다.`
       : `음성 속 단서를 학습된 지형 DB와 종합 대조하여, ${bestMatch.kp.trail} 코스 ${bestMatch.kp.name}(해발 ${bestMatch.kp.alt}m, 표지목 ${bestMatch.kp.signCode})으로 위치를 특정했습니다.`
   };

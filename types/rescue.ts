@@ -76,6 +76,13 @@ export interface AIEstimateResult {
   coreSourceLinks?: Array<{ title: string; url: string; snippet?: string }>;     // 핵심 데이터를 수집한 1~2개 출처 링크
   isGeminiPowered?: boolean;
   modelUsed?: string;
+  isInsufficientInfo?: boolean;       // 단일 정보만 주어져 추가 정보가 필요한지 여부
+  insufficientMessage?: string;       // 정보 부족 사유
+  guidePrompt?: string;               // 사용자 가이드 안내
+  presentDimensions?: string[];       // 감지된 정보 차원
+  missingDimensions?: string[];       // 누락된 정보 차원
+  isSingleInfoJudgment?: boolean;     // 추가 정보 제시 불가로 단일 정보 기반 긴급 판정인지 여부
+  singleInfoDimension?: string;       // 단일 정보 차원명
 }
 
 export interface RescueTimelineEvent {

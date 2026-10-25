@@ -15,6 +15,7 @@ import {
   getCoreSourceLinksForCourse,
   WebSearchResultItem,
 } from "@/lib/internetSearch";
+import { evaluateInfoDimensions } from "@/lib/infoDimensionEvaluator";
 import { AIEstimateResult } from "@/types/rescue";
 
 /**
@@ -68,7 +69,7 @@ function extractJsonFromGeminiResponse(text: string): any {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { voiceTranscript, currentAltitude, userApiKey } = body;
+    const { voiceTranscript, currentAltitude, userApiKey, forceJudgment } = body;
 
     if (!voiceTranscript || typeof voiceTranscript !== "string") {
       return NextResponse.json(
@@ -77,9 +78,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 0-1. 정보 차원(해발고도, 주변 지형, 가까운 랜드마크) 충분성 평가
+    const evalResult = evaluateInfoDimensions(voiceTranscript, !!forceJudgment);
+
+    // 해발고도, 주변 지형, 랜드마크 중 단 1개만 주어지고, 추가 제시 불가 상황도 아니라면 정보 부족 안내 반환
+    if (evalResult.isInsufficient) {
+      return NextResponse.json({
+        isInsufficientInfo: true,
+        analyzedText: voiceTranscript,
+        insufficientMessage: evalResult.insufficientMessage,
+        guidePrompt: evalResult.guidePrompt,
+        presentDimensions: evalResult.presentDimensions,
+        missingDimensions: evalResult.missingDimensions,
+        extractedAltitude: evalResult.detectedAltitude,
+        extractedLandmarks: [...evalResult.detectedTerrains, ...evalResult.detectedLandmarks],
+        estimatedLat: 33.3605,
+        estimatedLng: 126.5532,
+        confidence: 35,
+        radiusMeters: 200,
+        urgencyLevel: "high",
+        aiRecommendations: [
+          "정보 부족: 주변 지형 또는 가까운 랜드마크를 추가로 제보하도록 안내하세요.",
+          "추가 정보 제시가 불가능할 경우 [현재 정보로 즉시 위치 판단]을 선택하세요."
+        ],
+        timelineExplanation: evalResult.insufficientMessage || "단일 정보만 확인되어 추가 정보 수집 대기 중입니다."
+      });
+    }
+
+    const isSingleInfoJudgment = evalResult.dimensionCount === 1 && evalResult.isCannotProvideMore;
+    const singleDimName = evalResult.presentDimensions[0] || "단일 정보";
+
     const apiKey = userApiKey || process.env.GEMINI_API_KEY;
 
-    // 0. 음성 내에서 명시적인 키워드(표지목, 국가지점번호, 고도 숫자, 코스명, 공식 랜드마크) 존재 여부 검출
+    // 0-2. 음성 내에서 명시적인 키워드(표지목, 국가지점번호, 고도 숫자, 코스명, 공식 랜드마크) 존재 여부 검출
     const keywordCheck = detectMountainKeywords(voiceTranscript);
     const isInternetSearchNeeded = !keywordCheck.hasExplicitKeywords;
 
@@ -347,7 +378,15 @@ ${trailData}
           coreSourceLinks: isInternetSearchNeeded ? coreLinks : undefined,
           isGeminiPowered: true,
           modelUsed: isInternetSearchNeeded ? "Google Gemini 1.5 Flash + 인터넷 실시간 수집" : "Google Gemini 1.5 Flash",
+          isSingleInfoJudgment,
+          singleInfoDimension: isSingleInfoJudgment ? singleDimName : undefined,
         };
+
+        if (isSingleInfoJudgment) {
+          estimateResult.radiusMeters = Math.max(estimateResult.radiusMeters, 120);
+          estimateResult.confidence = Math.min(estimateResult.confidence, 65);
+          estimateResult.matchedReason = `단일 단서 [${singleDimName}] 기반 긴급 추정 (추가 정보 제시 불가 확인) ➜ ${estimateResult.matchedPOI?.name || '유력 지점'} 일대 특정`;
+        }
 
         return NextResponse.json(estimateResult);
       } catch (geminiError: any) {
@@ -357,7 +396,7 @@ ${trailData}
     }
 
     // 2. Fallback: 오프라인/온디바이스 자연어 처리 엔진 (테스트 모드: GPS 고도 미사용, 순수 음성 단서 분석)
-    const localResult = analyzeVoiceEnvironment(voiceTranscript);
+    const localResult = analyzeVoiceEnvironment(voiceTranscript, !!forceJudgment);
     const localTrailName = (localResult.matchedPOI?.description?.includes("영실") ? "영실" :
       localResult.matchedPOI?.description?.includes("관음사") ? "관음사" :
       localResult.matchedPOI?.description?.includes("어리목") ? "어리목" :
