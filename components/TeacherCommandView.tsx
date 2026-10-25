@@ -103,33 +103,37 @@ export default function TeacherCommandView({
       {/* Top Incident Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-sm text-white">
-          <p className="text-[11px] text-slate-400 font-medium">전체 인솔 학생</p>
-          <p className="text-2xl font-black text-white mt-0.5">{students.length}명</p>
-          <span className="text-[10px] text-blue-400">울산중앙고 2학년 3반</span>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-sm text-white">
-          <p className="text-[11px] text-emerald-400 font-medium">정상 대열 동행</p>
-          <p className="text-2xl font-black text-emerald-400 mt-0.5">{safeStudents.length}명</p>
-          <span className="text-[10px] text-slate-400">속밭~사라오름 구간</span>
+          <p className="text-[11px] text-slate-400 font-medium">관제 대상 학생</p>
+          <p className="text-xl font-black text-white mt-0.5">
+            {emergencyStudents[0]?.name || "김민준 (조난 학생)"}
+          </p>
+          <span className="text-[10px] text-blue-400">울산중앙고 2학년 3반 (20305)</span>
         </div>
 
         <div className="bg-slate-900 border border-red-500/40 p-4 rounded-2xl shadow-sm text-white bg-red-950/20">
           <p className="text-[11px] text-red-400 font-bold flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block"></span>
-            조난/이탈 발생
+            조난/이탈 상태
           </p>
-          <p className="text-2xl font-black text-red-400 mt-0.5">{emergencyStudents.length}명</p>
-          <span className="text-[10px] text-red-300">김민준 (진달래밭 부근)</span>
+          <p className="text-xl font-black text-red-400 mt-0.5">긴급 조난 SOS</p>
+          <span className="text-[10px] text-red-300">한라산 진달래밭 인근 이탈</span>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-sm text-white">
-          <p className="text-[11px] text-amber-400 font-medium flex items-center gap-1">
-            <CloudFog className="w-3.5 h-3.5 text-amber-400" />
+          <p className="text-[11px] text-amber-400 font-medium">단말기 통신/배터리</p>
+          <p className="text-xl font-black text-white mt-0.5">
+            {emergencyStudents[0]?.battery || 32}% <span className="text-xs font-normal text-amber-300">· 2G 통신망</span>
+          </p>
+          <span className="text-[10px] text-slate-400">측정 고도 해발 {emergencyStudents[0]?.lastLocation.altitude || 1485}m</span>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-sm text-white">
+          <p className="text-[11px] text-sky-400 font-medium flex items-center gap-1">
+            <CloudFog className="w-3.5 h-3.5 text-sky-400" />
             현지 기상 (1500m)
           </p>
           <p className="text-xl font-black text-white mt-0.5">11°C · 비/안개</p>
-          <span className="text-[10px] text-sky-400 font-medium">위성 실시간 기상 연동</span>
+          <span className="text-[10px] text-sky-400 font-medium">기상청 KST 실시간 연동</span>
         </div>
       </div>
 
@@ -349,15 +353,15 @@ export default function TeacherCommandView({
         )}
       </div>
 
-      {/* Full Student List Table */}
+      {/* Distressed Student Monitoring Table */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl text-white">
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <h3 className="text-sm font-bold flex items-center gap-2">
-            <Users className="w-4 h-4 text-blue-400" />
-            <span>학급 전체 학생 안전 모니터링 (2학년 3반)</span>
+            <Users className="w-4 h-4 text-red-400" />
+            <span>조난 학생 안전 모니터링 (2학년 3반)</span>
           </h3>
-          <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full font-mono">
-            총 {students.length}명
+          <span className="text-xs bg-red-500/20 text-red-300 border border-red-500/30 px-2.5 py-1 rounded-full font-mono font-bold">
+            조난 {students.length}명
           </span>
         </div>
 

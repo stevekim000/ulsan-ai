@@ -5,7 +5,7 @@ const STORAGE_KEY_STUDENTS = "meari_students_v1";
 const STORAGE_KEY_TIMELINE = "meari_timeline_v1";
 const STORAGE_KEY_MY_GPS = "meari_offline_gps_v1";
 
-// 기본 초기 수학여행 학생 데이터셋 (한라산 성판악 코스)
+// 조난 학생(김민준) 단일 데이터셋 (성판악 코스 진달래밭 인근 조난)
 export const INITIAL_STUDENTS: Student[] = [
   {
     id: "std-01",
@@ -34,63 +34,6 @@ export const INITIAL_STUDENTS: Student[] = [
     emergencyVoiceLog: "선생님, 친구들이랑 떨어졌는데 안개가 너무 짙어요. 앞에 해발 1500미터라고 적힌 큰 나무 팻말이 보이고 대피소 건물이 희미하게 보여요.",
     updatedAt: Date.now() - 1000 * 60 * 3,
   },
-  {
-    id: "std-02",
-    name: "이서연",
-    grade: 2,
-    classNum: 3,
-    studentNumber: "20312",
-    status: "safe",
-    battery: 84,
-    network: "online",
-    lastLocation: {
-      lat: 33.3648,
-      lng: 126.5662,
-      altitude: 1324,
-      accuracy: 10,
-      timestamp: Date.now(),
-    },
-    locationHistory: [],
-    updatedAt: Date.now(),
-  },
-  {
-    id: "std-03",
-    name: "박도윤",
-    grade: 2,
-    classNum: 3,
-    studentNumber: "20308",
-    status: "safe",
-    battery: 68,
-    network: "online",
-    lastLocation: {
-      lat: 33.3721,
-      lng: 126.5824,
-      altitude: 1100,
-      accuracy: 12,
-      timestamp: Date.now(),
-    },
-    locationHistory: [],
-    updatedAt: Date.now(),
-  },
-  {
-    id: "std-04",
-    name: "최예은",
-    grade: 2,
-    classNum: 3,
-    studentNumber: "20319",
-    status: "safe",
-    battery: 91,
-    network: "online",
-    lastLocation: {
-      lat: 33.3685,
-      lng: 126.5741,
-      altitude: 1250,
-      accuracy: 15,
-      timestamp: Date.now(),
-    },
-    locationHistory: [],
-    updatedAt: Date.now(),
-  },
 ];
 
 export const INITIAL_TIMELINE: RescueTimelineEvent[] = [
@@ -98,7 +41,7 @@ export const INITIAL_TIMELINE: RescueTimelineEvent[] = [
     id: "tl-01",
     timestamp: Date.now() - 1000 * 60 * 15,
     title: "한라산 성판악 코스 수학여행 단체 등반 시작",
-    content: "울산중앙고등학교 2학년 3반 28명 성판악 매표소 통과 (인솔 교사: 김선생, 박선생)",
+    content: "울산중앙고등학교 2학년 3반 성판악 매표소 통과 (인솔 교사: 김선생, 박선생)",
     type: "resolved",
     actor: "인솔교사",
   },
@@ -136,7 +79,17 @@ export function getStoredStudents(): Student[] {
       localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(INITIAL_STUDENTS));
       return INITIAL_STUDENTS;
     }
-    return JSON.parse(raw);
+    const parsed: Student[] = JSON.parse(raw);
+    // 조난 학생(김민준) 외 다른 학생 데이터는 제외
+    const emergencyOnly = parsed.filter((s) => s.status === "emergency" || s.id === "std-01");
+    if (emergencyOnly.length === 0) {
+      localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(INITIAL_STUDENTS));
+      return INITIAL_STUDENTS;
+    }
+    if (emergencyOnly.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(emergencyOnly));
+    }
+    return emergencyOnly;
   } catch {
     return INITIAL_STUDENTS;
   }
