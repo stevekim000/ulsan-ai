@@ -166,7 +166,7 @@ export default function HomePage() {
               }`}
             >
               <AlertOctagon className="w-3.5 h-3.5" />
-              <span>학생 SOS 모드</span>
+              <span>학생</span>
             </button>
 
             <button
@@ -178,7 +178,7 @@ export default function HomePage() {
               }`}
             >
               <Radio className="w-3.5 h-3.5" />
-              <span>교사 관제탑</span>
+              <span>교사</span>
             </button>
           </div>
         </div>
