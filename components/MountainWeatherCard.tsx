@@ -15,10 +15,11 @@ import {
   AlertTriangle,
   Clock,
   Calendar,
-  Compass,
-  ShieldAlert,
   ChevronDown,
   ChevronUp,
+  Key,
+  Check,
+  X,
 } from "lucide-react";
 import { MountainWeatherResponse, WeatherIconType } from "@/types/weather";
 
@@ -38,15 +39,34 @@ export default function MountainWeatherCard({
   const [activeTab, setActiveTab] = useState<"hourly" | "daily">("hourly");
   const [isExpanded, setIsExpanded] = useState<boolean>(defaultExpanded);
   const [lastRefreshed, setLastRefreshed] = useState<string>("");
+  const [kmaKey, setKmaKey] = useState<string>("");
+  const [showKeyModal, setShowKeyModal] = useState<boolean>(false);
+  const [keyInput, setKeyInput] = useState<string>("");
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
 
-  const fetchWeather = useCallback(async () => {
+  const fetchWeather = useCallback(async (customKey?: string) => {
     try {
       setLoading(true);
-      const res = await fetch("/api/weather");
+      const keyToUse =
+        customKey !== undefined
+          ? customKey
+          : typeof window !== "undefined"
+          ? localStorage.getItem("kma_service_key") || ""
+          : "";
+      const url = keyToUse
+        ? `/api/weather?kmaKey=${encodeURIComponent(keyToUse)}`
+        : "/api/weather";
+      const res = await fetch(url);
       if (res.ok) {
         const data: MountainWeatherResponse = await res.json();
         setWeather(data);
-        setLastRefreshed(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+        setLastRefreshed(
+          new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        );
       }
     } catch (e) {
       console.error("Failed to load weather data", e);
@@ -56,33 +76,63 @@ export default function MountainWeatherCard({
   }, []);
 
   useEffect(() => {
-    fetchWeather();
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("kma_service_key") || "";
+      setKmaKey(saved);
+      setKeyInput(saved);
+      fetchWeather(saved);
+    } else {
+      fetchWeather();
+    }
+
     // 3분마다 자동 기상 업데이트
-    const timer = setInterval(fetchWeather, 180000);
+    const timer = setInterval(() => {
+      fetchWeather();
+    }, 180000);
     return () => clearInterval(timer);
   }, [fetchWeather]);
 
-  const renderWeatherIcon = (iconType: WeatherIconType, className = "w-6 h-6") => {
+  const handleSaveKey = () => {
+    const trimmed = keyInput.trim();
+    localStorage.setItem("kma_service_key", trimmed);
+    setKmaKey(trimmed);
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setShowKeyModal(false);
+    }, 900);
+    fetchWeather(trimmed);
+  };
+
+  const handleClearKey = () => {
+    localStorage.removeItem("kma_service_key");
+    setKmaKey("");
+    setKeyInput("");
+    setShowKeyModal(false);
+    fetchWeather("");
+  };
+
+  const renderWeatherIcon = (iconType: WeatherIconType, iconClass = "w-6 h-6") => {
     switch (iconType) {
       case "clear":
-        return <Sun className={`${className} text-amber-400 animate-spin-slow`} />;
+        return <Sun className={`${iconClass} text-amber-400 animate-spin-slow`} />;
       case "partly_cloudy":
-        return <Sun className={`${className} text-amber-300`} />;
+        return <Sun className={`${iconClass} text-amber-300`} />;
       case "cloudy":
-        return <Cloud className={`${className} text-slate-300`} />;
+        return <Cloud className={`${iconClass} text-slate-300`} />;
       case "fog":
-        return <CloudFog className={`${className} text-sky-300 animate-pulse`} />;
+        return <CloudFog className={`${iconClass} text-sky-300 animate-pulse`} />;
       case "drizzle":
       case "rain":
-        return <CloudRain className={`${className} text-blue-400`} />;
+        return <CloudRain className={`${iconClass} text-blue-400`} />;
       case "heavy_rain":
-        return <CloudRain className={`${className} text-indigo-400 animate-bounce`} />;
+        return <CloudRain className={`${iconClass} text-indigo-400 animate-bounce`} />;
       case "snow":
-        return <CloudSnow className={`${className} text-cyan-200`} />;
+        return <CloudSnow className={`${iconClass} text-cyan-200`} />;
       case "storm":
-        return <CloudLightning className={`${className} text-amber-300 animate-pulse`} />;
+        return <CloudLightning className={`${iconClass} text-amber-300 animate-pulse`} />;
       default:
-        return <Cloud className={`${className} text-slate-300`} />;
+        return <Cloud className={`${iconClass} text-slate-300`} />;
     }
   };
 
@@ -101,9 +151,11 @@ export default function MountainWeatherCard({
 
   if (!weather && loading) {
     return (
-      <div className={`p-4 bg-slate-900/80 border border-slate-800 rounded-2xl flex items-center justify-center space-x-3 text-slate-400 text-xs ${className}`}>
+      <div
+        className={`p-4 bg-slate-900/80 border border-slate-800 rounded-2xl flex items-center justify-center space-x-3 text-slate-400 text-xs ${className}`}
+      >
         <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
-        <span>한라산 실시간 기상 위성 데이터 수신 중...</span>
+        <span>대한민국 기상청(KMA) 한라산 산악 기상 데이터 수신 중...</span>
       </div>
     );
   }
@@ -115,22 +167,22 @@ export default function MountainWeatherCard({
       className={`bg-gradient-to-br from-slate-900/95 via-slate-950 to-blue-950/70 border border-slate-800 hover:border-slate-700/80 rounded-2xl shadow-xl transition-all duration-300 overflow-hidden ${className}`}
     >
       {/* Top Header Bar */}
-      <div className="px-4 py-3 bg-slate-950/70 border-b border-slate-800/80 flex items-center justify-between gap-2">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20">
+      <div className="px-4 py-3 bg-slate-950/70 border-b border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-600/20 shrink-0">
             {renderWeatherIcon(weather.current.iconType, "w-4 h-4 text-white")}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-black text-white flex items-center gap-1.5">
-                <span>한라산 고지대 실시간 기상 &amp; 앞으로의 예보</span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping mr-1" />
-                  위성 실시간
-                </span>
+                <span>대한민국 기상청(KMA) 한라산 실시간 기상 &amp; 앞으로의 예보</span>
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping mr-1" />
+                기상청 격자(53, 35) {kmaKey ? "실시간 연동" : "산악관측망"}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 flex items-center gap-1">
+            <p className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
               <span>{weather.locationName}</span>
               <span className="text-slate-600">•</span>
               <span>기준: {weather.updatedAt}</span>
@@ -138,9 +190,24 @@ export default function MountainWeatherCard({
           </div>
         </div>
 
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-1.5 shrink-0">
           <button
-            onClick={fetchWeather}
+            onClick={() => setShowKeyModal(true)}
+            title="기상청 공공데이터 API 키 설정"
+            className={`p-1.5 rounded-lg border transition-all text-xs flex items-center gap-1 ${
+              kmaKey
+                ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60"
+                : "bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-700/50"
+            }`}
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span className="text-[10px] hidden md:inline font-bold">
+              {kmaKey ? "API키 연동중" : "기상청 키 등록"}
+            </span>
+          </button>
+
+          <button
+            onClick={() => fetchWeather()}
             disabled={loading}
             title="기상 데이터 새로고침"
             className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white transition-all border border-slate-700/50 disabled:opacity-50"
@@ -181,7 +248,9 @@ export default function MountainWeatherCard({
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-slate-300">
                   <Thermometer className="w-3 h-3 text-red-400" />
-                  <span>체감온도 <b>{weather.current.apparentTemperature}°C</b></span>
+                  <span>
+                    체감온도 <b>{weather.current.apparentTemperature}°C</b>
+                  </span>
                 </div>
               </div>
             </div>
@@ -289,7 +358,7 @@ export default function MountainWeatherCard({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-1.5 text-xs">
                 <span className="font-black text-slate-200 flex items-center gap-1">
-                  <span>📅 앞으로의 날씨 예보</span>
+                  <span>📅 앞으로의 날씨 예보 (대한민국 기상청 단기예보)</span>
                 </span>
               </div>
 
@@ -324,7 +393,7 @@ export default function MountainWeatherCard({
             {activeTab === "hourly" && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
-                  <span>지금부터 향후 12시간 동안의 산악 기상 변화</span>
+                  <span>기상청 격자(53, 35) 기준 향후 12시간 산악 기상 변화</span>
                   <span>좌우 스크롤 ➜</span>
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700">
@@ -409,7 +478,106 @@ export default function MountainWeatherCard({
             )}
           </div>
         )}
+
+        {/* Data Source & Attribution Footer */}
+        <div className="pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between text-[10px] text-slate-500 gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+            <span>
+              데이터 출처: <b className="text-slate-400">{weather.dataSource}</b>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span>격자좌표: nx=53, ny=35 (한라산 국립공원)</span>
+            {lastRefreshed && <span>• 갱신: {lastRefreshed}</span>}
+          </div>
+        </div>
       </div>
+
+      {/* KMA Service Key Configuration Modal */}
+      {showKeyModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-white font-bold text-sm">
+                <Key className="w-4 h-4 text-emerald-400" />
+                <span>대한민국 기상청(KMA) 공공데이터포털 API 키 설정</span>
+              </div>
+              <button
+                onClick={() => setShowKeyModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300 leading-relaxed">
+              <p>
+                <b>대한민국 기상청 단기예보 Open API</b>(apis.data.go.kr)의 일반 인증키(Encoding/Decoding)를 등록하시면, 모의 관측 대신 기상청 서버의 실시간 단기예보를 직접 수신합니다.
+              </p>
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 text-[11px]">
+                <div className="text-slate-400 flex items-center justify-between">
+                  <span>대상 서비스: 기상청_단기예보 ((구)_동네예보) 조회서비스</span>
+                </div>
+                <div className="text-slate-400">
+                  <span>적용 격자: X=53, Y=35 (한라산 국립공원 고지대)</span>
+                </div>
+                <div className="text-slate-500 text-[10px]">
+                  * 키를 입력하지 않아도 기상청 산악관측 규격 표준 모델이 안전하게 동작합니다.
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-slate-300">
+                  공공데이터포털 SERVICE_KEY 입력:
+                </label>
+                <input
+                  type="text"
+                  value={keyInput}
+                  onChange={(e) => setKeyInput(e.target.value)}
+                  placeholder="예: 공공데이터포털 발급 일반 인증키 붙여넣기"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+
+              {saveSuccess && (
+                <div className="p-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-center font-bold text-xs flex items-center justify-center space-x-1.5">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>기상청 API 키가 저장되었습니다. 즉시 동기화합니다!</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800 gap-2">
+              <button
+                type="button"
+                onClick={handleClearKey}
+                className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-red-400 hover:bg-slate-800/80 transition-all"
+              >
+                키 초기화
+              </button>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowKeyModal(false)}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all"
+                >
+                  닫기
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveKey}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black shadow-lg shadow-blue-600/30 transition-all flex items-center space-x-1"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>저장 및 동기화</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
