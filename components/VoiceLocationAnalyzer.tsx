@@ -15,7 +15,9 @@ import {
   Check,
   Globe,
   Search,
-  ExternalLink
+  ExternalLink,
+  MessageSquareText,
+  Send
 } from "lucide-react";
 import { analyzeVoiceEnvironment } from "@/lib/aiLocationEngine";
 import { AIEstimateResult } from "@/types/rescue";
@@ -86,7 +88,10 @@ export default function VoiceLocationAnalyzer({
   const [apiKey, setApiKey] = useState<string>("");
   const [showKeyInput, setShowKeyInput] = useState<boolean>(false);
   const [keySaved, setKeySaved] = useState<boolean>(false);
+  const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
+  const [textInput, setTextInput] = useState<string>("");
   const recognitionRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     // 로컬 스토리지에 저장된 Gemini API 키 불러오기
@@ -173,7 +178,22 @@ export default function VoiceLocationAnalyzer({
 
   const handleSelectSample = (sample: string) => {
     setTranscript(sample);
+    setTextInput(sample);
     runAIAnalysis(sample);
+  };
+
+  const handleTextSubmit = () => {
+    const text = textInput.trim();
+    if (text.length < 3) return;
+    setTranscript(text);
+    runAIAnalysis(text);
+  };
+
+  const handleTextKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleTextSubmit();
+    }
   };
 
   const runAIAnalysis = async (textToAnalyze: string) => {
@@ -282,64 +302,148 @@ export default function VoiceLocationAnalyzer({
         </div>
       )}
 
-      {/* Main Mic Recording Area */}
-      <div className="flex flex-col items-center justify-center p-6 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-4">
-        {/* Animated Mic Button */}
-        <div className="relative">
-          {isRecording && (
-            <>
-              <div className="absolute -inset-4 rounded-full bg-red-500/30 animate-ping opacity-75" />
-              <div className="absolute -inset-8 rounded-full bg-red-500/15 animate-pulse" />
-            </>
-          )}
+      {/* Input Mode Toggle (음성 / 텍스트) */}
+      <div className="flex items-center bg-slate-950/70 p-1 rounded-2xl border border-slate-800 w-fit">
+        <button
+          onClick={() => setInputMode("voice")}
+          className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            inputMode === "voice"
+              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          <Mic className="w-3.5 h-3.5" />
+          <span>음성으로 말하기</span>
+        </button>
+        <button
+          onClick={() => {
+            setInputMode("text");
+            setTimeout(() => textareaRef.current?.focus(), 100);
+          }}
+          className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            inputMode === "text"
+              ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          <MessageSquareText className="w-3.5 h-3.5" />
+          <span>텍스트로 입력</span>
+        </button>
+      </div>
 
-          <button
-            onClick={toggleRecording}
-            className={`relative z-10 w-20 h-20 rounded-full flex flex-col items-center justify-center transition-all shadow-xl active:scale-95 ${
-              isRecording
-                ? "bg-red-600 text-white shadow-red-600/50 scale-105"
-                : "bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30"
-            }`}
-          >
-            {isRecording ? (
-              <MicOff className="w-8 h-8 animate-bounce" />
-            ) : (
-              <Mic className="w-8 h-8" />
+      {/* Voice Input Mode */}
+      {inputMode === "voice" && (
+        <div className="flex flex-col items-center justify-center p-6 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-4">
+          {/* Animated Mic Button */}
+          <div className="relative">
+            {isRecording && (
+              <>
+                <div className="absolute -inset-4 rounded-full bg-red-500/30 animate-ping opacity-75" />
+                <div className="absolute -inset-8 rounded-full bg-red-500/15 animate-pulse" />
+              </>
             )}
-            <span className="text-[10px] font-bold mt-1">
-              {isRecording ? "말하기 완료" : "음성 말하기"}
-            </span>
-          </button>
-        </div>
 
-        <p className="text-xs font-semibold text-slate-400">
-          {isRecording ? (
-            <span className="text-red-400 animate-pulse flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-ping"></span>
-              학생의 음성을 실시간 듣고 있습니다... (말씀 후 버튼을 다시 누르세요)
-            </span>
-          ) : (
-            "버튼을 누르고 주변에 보이는 팻말이나 건물, 특징을 말씀해 주세요."
-          )}
-        </p>
+            <button
+              onClick={toggleRecording}
+              className={`relative z-10 w-20 h-20 rounded-full flex flex-col items-center justify-center transition-all shadow-xl active:scale-95 ${
+                isRecording
+                  ? "bg-red-600 text-white shadow-red-600/50 scale-105"
+                  : "bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30"
+              }`}
+            >
+              {isRecording ? (
+                <MicOff className="w-8 h-8 animate-bounce" />
+              ) : (
+                <Mic className="w-8 h-8" />
+              )}
+              <span className="text-[10px] font-bold mt-1">
+                {isRecording ? "말하기 완료" : "음성 말하기"}
+              </span>
+            </button>
+          </div>
 
-        {/* Realtime Transcript Box */}
-        <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 min-h-[56px] flex items-center justify-between gap-3">
-          <p className="italic text-slate-300 break-keep">
-            {transcript ? `"${transcript}"` : "음성 텍스트가 여기에 실시간으로 표시됩니다..."}
+          <p className="text-xs font-semibold text-slate-400">
+            {isRecording ? (
+              <span className="text-red-400 animate-pulse flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-ping"></span>
+                학생의 음성을 실시간 듣고 있습니다... (말씀 후 버튼을 다시 누르세요)
+              </span>
+            ) : (
+              "버튼을 누르고 주변에 보이는 팻말이나 건물, 특징을 말씀해 주세요."
+            )}
           </p>
 
-          {transcript && !isAnalyzing && (
+          {/* Realtime Transcript Box */}
+          <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 min-h-[56px] flex items-center justify-between gap-3">
+            <p className="italic text-slate-300 break-keep">
+              {transcript ? `"${transcript}"` : "음성 텍스트가 여기에 실시간으로 표시됩니다..."}
+            </p>
+
+            {transcript && !isAnalyzing && (
+              <button
+                onClick={() => runAIAnalysis(transcript)}
+                className="shrink-0 px-3 py-1.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-md transition-all active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI 분석</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Text Input Mode */}
+      {inputMode === "text" && (
+        <div className="flex flex-col p-5 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-3">
+          <div className="flex items-center gap-2 text-xs">
+            <MessageSquareText className="w-4 h-4 text-emerald-400" />
+            <span className="font-bold text-emerald-300">텍스트 입력 모드</span>
+            <span className="text-[10px] text-slate-500">— 말을 할 수 없는 상황에서 주변 환경을 글로 설명하세요</span>
+          </div>
+
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyDown={handleTextKeyDown}
+              placeholder="예: 표지판에 성판악 1-24라고 적혀있고 진달래밭 대피소 건물이 보여요"
+              className="w-full bg-slate-900 border border-slate-800 focus:border-emerald-500/60 rounded-xl px-4 py-3 pr-14 text-sm text-white placeholder-slate-500 focus:outline-none resize-none transition-colors"
+              rows={3}
+            />
             <button
-              onClick={() => runAIAnalysis(transcript)}
-              className="shrink-0 px-3 py-1.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-md transition-all active:scale-95"
+              onClick={handleTextSubmit}
+              disabled={textInput.trim().length < 3 || isAnalyzing}
+              className="absolute right-2.5 bottom-2.5 w-9 h-9 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all active:scale-90 shadow-md"
+              title="AI 분석 전송"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>AI 분석</span>
+              <Send className="w-4 h-4" />
             </button>
+          </div>
+
+          <p className="text-[10px] text-slate-500">
+            Enter로 전송 · Shift+Enter로 줄바꿈
+          </p>
+
+          {/* Show transcript if text was submitted */}
+          {transcript && (
+            <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 flex items-center justify-between gap-3">
+              <p className="italic text-slate-300 break-keep">
+                "{transcript}"
+              </p>
+              {!isAnalyzing && (
+                <button
+                  onClick={() => runAIAnalysis(transcript)}
+                  className="shrink-0 px-3 py-1.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 shadow-md transition-all active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>재분석</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* Quick Test Samples */}
       <div className="space-y-2">
