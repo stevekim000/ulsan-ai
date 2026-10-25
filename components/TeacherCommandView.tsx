@@ -5,15 +5,13 @@ import {
   ShieldAlert, 
   Users, 
   MapPin, 
-  PhoneCall, 
   Sparkles, 
   CheckCircle2, 
   AlertTriangle, 
   CloudFog, 
-  Navigation,
-  Send,
-  Radio,
-  FileCheck2
+  Navigation, 
+  Send, 
+  Radio 
 } from "lucide-react";
 import MountainMap from "@/components/MountainMap";
 import MountainWeatherCard from "@/components/MountainWeatherCard";
@@ -40,7 +38,6 @@ export default function TeacherCommandView({
   onSelectCandidateCourse,
 }: TeacherCommandViewProps) {
   const [selectedStudent, setSelectedStudent] = useState<Student>(students[0]);
-  const [dispatch119Done, setDispatch119Done] = useState<boolean>(false);
   const [customMsg, setCustomMsg] = useState<string>("");
   const [sentMessages, setSentMessages] = useState<TeacherBroadcastMessage[]>([]);
 
@@ -50,28 +47,6 @@ export default function TeacherCommandView({
 
   const emergencyStudents = students.filter((s) => s.status === "emergency");
   const safeStudents = students.filter((s) => s.status === "safe");
-
-  const handleDispatch119 = () => {
-    setDispatch119Done(true);
-    const poiName = aiEstimate?.matchedPOI?.name || "조난 지점";
-    const radius = aiEstimate?.radiusMeters || 25;
-    const event = {
-      timestamp: Date.now(),
-      title: "인솔교사, 119 산악구조대에 AI 추정 정밀 좌표 긴급 전송",
-      content: `인솔교사가 119 상황실로 김민준 학생의 AI 위치 추정 데이터(${poiName} 반경 ${radius}m) 및 음성 녹취록을 전달했습니다. 구조팀 출동 개시.`,
-      type: "rescue_team" as const,
-      actor: "인솔교사 김선생",
-    };
-    addTimelineEvent(event);
-
-    if (onNotification) {
-      onNotification({
-        type: "rescue_team",
-        title: "119 산악구조대 긴급 출동 접수",
-        message: `김민준 학생의 AI 정밀 추정 좌표(${poiName}) 및 녹취록이 119 상황실에 전송되어 구조팀이 현장으로 긴급 출동했습니다.`,
-      });
-    }
-  };
 
   const handleSendTeacherMessage = (textToSend?: string) => {
     const text = (textToSend || customMsg).trim();
@@ -161,30 +136,6 @@ export default function TeacherCommandView({
                   학생 단말기 배터리 {emergencyStudents[0].battery}% | 통신 상태: 산악 약신호 (간헐적 궤적 수신)
                 </p>
               </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleDispatch119}
-                disabled={dispatch119Done}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center space-x-2 transition-all shadow-lg active:scale-95 ${
-                  dispatch119Done
-                    ? "bg-emerald-600 text-white shadow-emerald-600/30"
-                    : "bg-red-600 hover:bg-red-500 text-white shadow-red-600/40 animate-bounce"
-                }`}
-              >
-                {dispatch119Done ? (
-                  <>
-                    <FileCheck2 className="w-4 h-4" />
-                    <span>119 출동 접수 완료</span>
-                  </>
-                ) : (
-                  <>
-                    <PhoneCall className="w-4 h-4" />
-                    <span>119 구조대 AI 좌표 즉시 전송</span>
-                  </>
-                )}
-              </button>
             </div>
           </div>
 
